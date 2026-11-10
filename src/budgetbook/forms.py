@@ -1,7 +1,9 @@
 """Validation of submitted forms. Each validator returns (clean, errors)."""
+import re
 from datetime import datetime
 
 from .money import parse_amount
+from .rules import MATCH_TYPES, compile_regex
 
 MAX_PAYEE = 200
 MAX_NOTE = 1000
@@ -79,12 +81,21 @@ def validate_name(form):
 
 def validate_rule(form, category_ids):
     errors = []
+    match_type = (form.get("match_type") or "contains").strip()
+    if match_type not in MATCH_TYPES:
+        errors.append("Unknown match type.")
+        match_type = "contains"
     pattern = clean_text(form.get("pattern"))
     if not pattern:
         errors.append("Pattern is required.")
     elif len(pattern) > MAX_PATTERN:
         errors.append(f"Pattern must be at most {MAX_PATTERN} characters.")
+    elif match_type == "regex":
+        try:
+            compile_regex(pattern)
+        except re.error as e:
+            errors.append(f"Invalid regular expression: {e}.")
     cat, err = parse_category(form.get("category_id"), category_ids, required=True)
     if err:
         errors.append(err)
-    return {"pattern": pattern, "category_id": cat}, errors
+    return {"pattern": pattern, "category_id": cat, "match_type": match_type}, errors

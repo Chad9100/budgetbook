@@ -3,12 +3,19 @@
 {% block body %}
 <h1>Auto-categorisation rules</h1>
 <p class="muted">A rule says <em>payee contains X &rarr; category Y</em> (case-insensitive).
-When several rules match, the longest pattern wins. Rules apply to new transactions
+It can also match when the payee starts with X, is exactly X, or matches a
+regular expression. When several rules match, an exact rule wins, then the longest
+"contains" or "starts with" pattern, then a regex rule. Rules apply to new transactions
 without a category, to imports, and on demand below.</p>
 {% if categories %}
 <form method="post" action="{{ url_for('rules_page') }}" class="inline">
   {{ csrf_field() }}
-  <label>Payee contains <input type="text" name="pattern" value="{{ form.pattern }}" maxlength="100" required></label>
+  <label>Payee
+    <select name="match_type">
+      {% for value, label in match_types.items() %}<option value="{{ value }}" {% if form.match_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Pattern <input type="text" name="pattern" value="{{ form.pattern }}" maxlength="100" required></label>
   <label>&rarr; category
     <select name="category_id" required>
       <option value="">choose&hellip;</option>
@@ -22,10 +29,10 @@ without a category, to imports, and on demand below.</p>
 {% endif %}
 {% if rules %}
 <table>
-<thead><tr><th>Payee contains</th><th>Category</th><th></th></tr></thead>
+<thead><tr><th>Payee</th><th>Pattern</th><th>Category</th><th></th></tr></thead>
 <tbody>
 {% for r in rules %}
-<tr><td><code>{{ r.pattern }}</code></td><td>{{ r.category }}</td>
+<tr><td>{{ match_types.get(r.match_type, r.match_type) }}</td><td><code>{{ r.pattern }}</code></td><td>{{ r.category }}</td>
   <td class="actions">
     <form method="post" action="{{ url_for('delete_rule', rule_id=r.id) }}">
       {{ csrf_field() }}<button type="submit" class="link">Delete</button>

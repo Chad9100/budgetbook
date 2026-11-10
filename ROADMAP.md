@@ -25,7 +25,7 @@ Estimates are rough working hours for one person.
 
 ## v0.3: better rules (about 3 h)
 
-- [ ] Match types besides "contains": starts with, exact, and a regex option
+- [x] Match types besides "contains": starts with, exact, and a regex option
       with validation
 - [ ] Optional amount range on a rule (e.g. only spending over 100.00)
 - [ ] "Create rule from this transaction" link on the transaction list

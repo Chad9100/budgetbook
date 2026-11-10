@@ -10,7 +10,9 @@ from .money import month_range
 
 # 2: import_profiles (added with CREATE TABLE IF NOT EXISTS, so opening a
 #    version-1 database upgrades it in place without touching existing data)
-SCHEMA_VERSION = 2
+# 3: rules.match_type (added with ALTER TABLE when missing; existing rules
+#    keep working as "contains")
+SCHEMA_VERSION = 3
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS categories (
@@ -30,7 +32,8 @@ CREATE INDEX IF NOT EXISTS ix_transactions_date ON transactions(date);
 CREATE TABLE IF NOT EXISTS rules (
     id          INTEGER PRIMARY KEY,
     pattern     TEXT NOT NULL,
-    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE
+    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    match_type  TEXT NOT NULL DEFAULT 'contains'
 );
 CREATE TABLE IF NOT EXISTS budgets (
     category_id  INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
@@ -67,6 +70,10 @@ def connect(path):
 
 def ensure_schema(conn):
     conn.executescript(SCHEMA)
+    rule_cols = {r[1] for r in conn.execute("PRAGMA table_info(rules)")}
+    if "match_type" not in rule_cols:
+        conn.execute("ALTER TABLE rules ADD COLUMN"
+                     " match_type TEXT NOT NULL DEFAULT 'contains'")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     conn.commit()
 
@@ -235,15 +242,16 @@ def existing_keys(start, end, key):
 
 def list_rules():
     return get_db().execute(
-        "SELECT r.id, r.pattern, r.category_id, c.name AS category"
+        "SELECT r.id, r.pattern, r.category_id, r.match_type, c.name AS category"
         " FROM rules r JOIN categories c ON c.id = r.category_id"
         " ORDER BY r.id").fetchall()
 
 
-def add_rule(pattern, category_id):
+def add_rule(pattern, category_id, match_type="contains"):
     conn = get_db()
-    cur = conn.execute("INSERT INTO rules (pattern, category_id) VALUES (?, ?)",
-                       (pattern, category_id))
+    cur = conn.execute(
+        "INSERT INTO rules (pattern, category_id, match_type) VALUES (?, ?, ?)",
+        (pattern, category_id, match_type))
     conn.commit()
     return cur.lastrowid
 

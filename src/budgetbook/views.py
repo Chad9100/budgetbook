@@ -183,11 +183,13 @@ def register(app):
         if request.method == "POST":
             clean, errors = validate_rule(request.form, category_ids())
             if not errors:
-                db.add_rule(clean["pattern"], clean["category_id"])
-                flash(f"Rule added: payee contains {clean['pattern']!r}.")
+                db.add_rule(clean["pattern"], clean["category_id"], clean["match_type"])
+                flash(f"Rule added: payee {rules.MATCH_TYPES[clean['match_type']]}"
+                      f" {clean['pattern']!r}.")
                 return redirect(url_for("rules_page"))
             status, form = 400, request.form
         return render_template("rules.html", rules=db.list_rules(),
+                               match_types=rules.MATCH_TYPES,
                                categories=db.list_categories(), errors=errors,
                                form=form,
                                uncategorised=len(db.uncategorised_transactions())), status
