@@ -12,7 +12,8 @@ from .money import month_range
 #    version-1 database upgrades it in place without touching existing data)
 # 3: rules.match_type (added with ALTER TABLE when missing; existing rules
 #    keep working as "contains")
-SCHEMA_VERSION = 3
+# 4: rules.min_cents / rules.max_cents (nullable ALTERs; NULL = no limit)
+SCHEMA_VERSION = 4
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS categories (
@@ -33,7 +34,9 @@ CREATE TABLE IF NOT EXISTS rules (
     id          INTEGER PRIMARY KEY,
     pattern     TEXT NOT NULL,
     category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-    match_type  TEXT NOT NULL DEFAULT 'contains'
+    match_type  TEXT NOT NULL DEFAULT 'contains',
+    min_cents   INTEGER,
+    max_cents   INTEGER
 );
 CREATE TABLE IF NOT EXISTS budgets (
     category_id  INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
@@ -74,6 +77,9 @@ def ensure_schema(conn):
     if "match_type" not in rule_cols:
         conn.execute("ALTER TABLE rules ADD COLUMN"
                      " match_type TEXT NOT NULL DEFAULT 'contains'")
+    for col in ("min_cents", "max_cents"):
+        if col not in rule_cols:
+            conn.execute(f"ALTER TABLE rules ADD COLUMN {col} INTEGER")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     conn.commit()
 
@@ -219,7 +225,8 @@ def delete_transaction(tx_id):
 
 def uncategorised_transactions():
     return get_db().execute(
-        "SELECT id, payee FROM transactions WHERE category_id IS NULL").fetchall()
+        "SELECT id, payee, amount_cents FROM transactions"
+        " WHERE category_id IS NULL").fetchall()
 
 
 def set_categories(pairs):
@@ -242,16 +249,19 @@ def existing_keys(start, end, key):
 
 def list_rules():
     return get_db().execute(
-        "SELECT r.id, r.pattern, r.category_id, r.match_type, c.name AS category"
+        "SELECT r.id, r.pattern, r.category_id, r.match_type,"
+        " r.min_cents, r.max_cents, c.name AS category"
         " FROM rules r JOIN categories c ON c.id = r.category_id"
         " ORDER BY r.id").fetchall()
 
 
-def add_rule(pattern, category_id, match_type="contains"):
+def add_rule(pattern, category_id, match_type="contains",
+             min_cents=None, max_cents=None):
     conn = get_db()
     cur = conn.execute(
-        "INSERT INTO rules (pattern, category_id, match_type) VALUES (?, ?, ?)",
-        (pattern, category_id, match_type))
+        "INSERT INTO rules (pattern, category_id, match_type, min_cents, max_cents)"
+        " VALUES (?, ?, ?, ?, ?)",
+        (pattern, category_id, match_type, min_cents, max_cents))
     conn.commit()
     return cur.lastrowid
 

@@ -5,7 +5,7 @@ import secrets
 from flask import Flask
 
 from . import csrf, db
-from .money import cents_to_input, format_cents, month_label
+from .money import amount_range_text, cents_to_input, format_cents, month_label
 
 __version__ = "0.1.0"
 
@@ -49,6 +49,8 @@ def create_app(test_config=None):
     app.add_template_filter(lambda c: format_cents(c, signed=True), "signed_money")
     app.add_template_filter(cents_to_input, "plain_money")
     app.add_template_filter(month_label, "month_label")
+    app.add_template_filter(lambda r: amount_range_text(r["min_cents"], r["max_cents"]).strip()
+                            or "any amount", "rule_range")
 
     from . import views
     views.register(app)

@@ -54,6 +54,18 @@ def format_cents(cents, signed=False):
     return f"{sign}{whole:,}.{frac:02d}"
 
 
+def amount_range_text(min_cents, max_cents):
+    """Describe a rule's amount range, e.g. `` for amounts of 100.00 or more``;
+    empty when there is no limit."""
+    if min_cents is None and max_cents is None:
+        return ""
+    if min_cents is None:
+        return f" for amounts up to {format_cents(max_cents)}"
+    if max_cents is None:
+        return f" for amounts of {format_cents(min_cents)} or more"
+    return f" for amounts from {format_cents(min_cents)} to {format_cents(max_cents)}"
+
+
 def cents_to_input(cents):
     """Plain unsigned value for a form field, e.g. ``1234.50``."""
     whole, frac = divmod(abs(int(cents)), 100)

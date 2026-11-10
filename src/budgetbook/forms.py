@@ -98,4 +98,21 @@ def validate_rule(form, category_ids):
     cat, err = parse_category(form.get("category_id"), category_ids, required=True)
     if err:
         errors.append(err)
-    return {"pattern": pattern, "category_id": cat, "match_type": match_type}, errors
+    bounds = {}
+    for key, label in (("min", "Minimum"), ("max", "Maximum")):
+        text = (form.get(f"{key}_amount") or "").strip()
+        bounds[key] = None
+        if not text:
+            continue
+        try:
+            value = parse_amount(text)
+            if value < 0:
+                raise ValueError("must not be negative")
+            bounds[key] = value
+        except ValueError as e:
+            errors.append(f"{label} amount: {e}.")
+    if (bounds["min"] is not None and bounds["max"] is not None
+            and bounds["min"] > bounds["max"]):
+        errors.append("Minimum amount must not be greater than the maximum.")
+    return {"pattern": pattern, "category_id": cat, "match_type": match_type,
+            "min_cents": bounds["min"], "max_cents": bounds["max"]}, errors

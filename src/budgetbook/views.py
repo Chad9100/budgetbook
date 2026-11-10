@@ -13,7 +13,7 @@ from .csvimport import (DATE_FORMATS, KNOWN_FORMATS, decode, dup_key, guess_mapp
                         split_duplicates)
 from .forms import (MAX_NAME, validate_name, validate_rule,
                     validate_transaction)
-from .money import (cents_to_input, current_month, parse_amount, shift_month,
+from .money import (amount_range_text, cents_to_input, current_month, parse_amount, shift_month,
                     valid_month)
 
 PREVIEW_ROWS = 5
@@ -83,7 +83,8 @@ def register(app):
             if errors:
                 return tx_form(request.form, errors, 400)
             if clean["category_id"] is None:
-                clean["category_id"] = rules.pick_category(clean["payee"], rules.load_rules())
+                clean["category_id"] = rules.pick_category(clean["payee"], rules.load_rules(),
+                                                        clean["amount_cents"])
             db.insert_transaction(clean)
             flash("Transaction added.")
             return redirect(url_for("index", month=clean["date"][:7]))
@@ -99,7 +100,8 @@ def register(app):
             if errors:
                 return tx_form({**request.form, "id": tx_id}, errors, 400)
             if clean["category_id"] is None:
-                clean["category_id"] = rules.pick_category(clean["payee"], rules.load_rules())
+                clean["category_id"] = rules.pick_category(clean["payee"], rules.load_rules(),
+                                                        clean["amount_cents"])
             db.update_transaction(tx_id, clean)
             flash("Transaction updated.")
             return redirect(url_for("index", month=clean["date"][:7]))
@@ -183,9 +185,11 @@ def register(app):
         if request.method == "POST":
             clean, errors = validate_rule(request.form, category_ids())
             if not errors:
-                db.add_rule(clean["pattern"], clean["category_id"], clean["match_type"])
+                db.add_rule(clean["pattern"], clean["category_id"],
+                            clean["match_type"], clean["min_cents"], clean["max_cents"])
                 flash(f"Rule added: payee {rules.MATCH_TYPES[clean['match_type']]}"
-                      f" {clean['pattern']!r}.")
+                      f" {clean['pattern']!r}"
+                      f"{amount_range_text(clean['min_cents'], clean['max_cents'])}.")
                 return redirect(url_for("rules_page"))
             status, form = 400, request.form
         return render_template("rules.html", rules=db.list_rules(),
@@ -394,7 +398,8 @@ def register(app):
             new, dupes = new + dupes, []
         rule_list = rules.load_rules()
         for tx in new:
-            tx["category_id"] = rules.pick_category(tx["payee"], rule_list)
+            tx["category_id"] = rules.pick_category(tx["payee"], rule_list,
+                                                    tx["amount_cents"])
         for tx in dupes:
             tx["duplicate"] = True
         return new, dupes

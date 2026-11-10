@@ -136,3 +136,81 @@ def test_version_2_database_rules_become_contains_rules(tmp_path):
     conn = sqlite3.connect(path)
     assert conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
     conn.close()
+
+
+def test_amount_range_limits_a_rule_and_ignores_sign():
+    big = ("amazon", 1, "contains", 10000, None)
+    small = ("amazon", 2, "contains", None, 999)
+    assert pick_category("Amazon", [big], -15000) == 1
+    assert pick_category("Amazon", [big], 15000) == 1
+    assert pick_category("Amazon", [big], -9999) is None
+    assert pick_category("Amazon", [big], 10000) == 1
+    assert pick_category("Amazon", [small], -999) == 2
+    assert pick_category("Amazon", [small], -1000) is None
+    # unknown amount only matches rules without a range
+    assert pick_category("Amazon", [big]) is None
+    assert pick_category("Amazon", [("amazon", 3)]) == 3
+
+
+def test_ranged_rule_beats_plain_rule_of_same_rank():
+    rules = [("amazon", 1, "contains", None, None),
+             ("amazon", 2, "contains", 5000, None)]
+    assert pick_category("Amazon", rules, -6000) == 2
+    assert pick_category("Amazon", rules, -1000) == 1
+
+
+def test_rules_view_amount_range_validation_and_use(post, client, category, add_tx, txs):
+    big, small = category("Big shop"), category("Top-up")
+    for bad in ({"min_amount": "abc"}, {"max_amount": "-5"},
+                {"min_amount": "50", "max_amount": "10"}):
+        r = post("/rules", {"pattern": "tesco", "category_id": str(big), **bad})
+        assert r.status_code == 400
+    r = post("/rules", {"pattern": "tesco", "category_id": str(big),
+                        "min_amount": "100"}, follow_redirects=True)
+    body = r.get_data(as_text=True)
+    assert "for amounts of 100.00 or more" in body and "<td>for amounts of 100.00 or more</td>" in body
+    post("/rules", {"pattern": "tesco", "category_id": str(small), "max_amount": "99.99"})
+
+    add_tx(payee="TESCO", amount="150.00")
+    add_tx(payee="TESCO", amount="12.50")
+    add_tx(payee="TESCO", amount="99.99")
+    assert [t["category_id"] for t in txs()] == [big, small, small]
+
+
+def test_apply_rules_uses_amounts_and_csrf(client, post, category, add_tx, txs):
+    cat = category("Large")
+    add_tx(payee="Garage", amount="500.00")
+    add_tx(payee="Garage", amount="20.00")
+    post("/rules", {"pattern": "garage", "category_id": str(cat), "min_amount": "100"})
+    post("/rules/apply", {})
+    assert [t["category_id"] for t in txs()] == [cat, None]
+    assert client.post("/rules", data={"pattern": "x", "category_id": str(cat),
+                                       "min_amount": "1"}).status_code == 400
+
+
+def test_version_3_database_gains_amount_columns(tmp_path):
+    import sqlite3
+
+    from budgetbook import create_app, db
+
+    path = tmp_path / "v3.db"
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        "CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE);"
+        "CREATE TABLE rules (id INTEGER PRIMARY KEY, pattern TEXT NOT NULL,"
+        " category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,"
+        " match_type TEXT NOT NULL DEFAULT 'contains');"
+        "INSERT INTO categories (id, name) VALUES (1, 'Groceries');"
+        "INSERT INTO rules (pattern, category_id, match_type) VALUES ('tesco', 1, 'exact');"
+        "PRAGMA user_version = 3;")
+    conn.close()
+    app = create_app({"TESTING": True, "SECRET_KEY": "t", "DATABASE": str(path)})
+    with app.app_context():
+        (rule,) = db.list_rules()
+        assert (rule["match_type"], rule["min_cents"], rule["max_cents"]) == ("exact", None, None)
+        db.add_rule("aldi", 1, "contains", 500, 9000)
+        assert db.list_rules()[1]["max_cents"] == 9000
+    create_app({"TESTING": True, "SECRET_KEY": "t", "DATABASE": str(path)})
+    conn = sqlite3.connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+    conn.close()
