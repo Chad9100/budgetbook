@@ -373,3 +373,44 @@ def category_usage():
             if r[0] in usage:
                 usage[r[0]][key] = r[1]
     return usage
+
+
+def _profile_row(row):
+    try:
+        mapping = json.loads(row["mapping"])
+        header = json.loads(row["header_key"])
+    except ValueError:
+        mapping, header = {}, []
+    return {"id": row["id"], "name": row["name"], "updated_at": row["updated_at"],
+            "header": header if isinstance(header, list) else [],
+            "mapping": mapping if isinstance(mapping, dict) else {}}
+
+
+def list_import_profiles():
+    """Saved mappings, by name. ``header`` is the normalised header row."""
+    rows = get_db().execute(
+        "SELECT id, header_key, name, mapping, updated_at FROM import_profiles"
+        " ORDER BY name COLLATE NOCASE, id").fetchall()
+    return [_profile_row(r) for r in rows]
+
+
+def get_import_profile_by_id(profile_id):
+    row = get_db().execute(
+        "SELECT id, header_key, name, mapping, updated_at FROM import_profiles"
+        " WHERE id = ?", (profile_id,)).fetchone()
+    return None if row is None else _profile_row(row)
+
+
+def update_import_profile(profile_id, name, mapping):
+    conn = get_db()
+    conn.execute("UPDATE import_profiles SET name = ?, mapping = ?,"
+                 " updated_at = datetime('now') WHERE id = ?",
+                 (name, json.dumps(mapping, sort_keys=True), profile_id))
+    conn.commit()
+
+
+def delete_import_profile(profile_id):
+    conn = get_db()
+    cur = conn.execute("DELETE FROM import_profiles WHERE id = ?", (profile_id,))
+    conn.commit()
+    return cur.rowcount > 0

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Edit mapping{% endblock %}
+{% block body %}
+<h1>Edit saved mapping</h1>
+<p>Used for files whose header row is: <span class="muted">{{ header|join(', ') }}</span></p>
+<form method="post" action="{{ url_for('edit_import_profile', profile_id=profile.id) }}" class="stacked">
+  {{ csrf_field() }}
+  <label>Name <input type="text" name="name" value="{{ sel.get('name', '') }}" maxlength="60" required></label>
+  {% include "_mapping_fields.html" %}
+  <p><button type="submit">Save</button> <a href="{{ url_for('import_profiles') }}">Cancel</a></p>
+</form>
+{% endblock %}

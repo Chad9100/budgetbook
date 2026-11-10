@@ -1,16 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Map columns{% endblock %}
-{% macro colselect(name, label, optional=False) -%}
-<label>{{ label }}
-  <select name="{{ name }}">
-    <option value="">{{ '(none)' if optional else 'choose…' }}</option>
-    {% for h in header %}<option value="{{ loop.index0 }}" {% if sel.get(name, '') == loop.index0|string %}selected{% endif %}>{{ loop.index }}. {{ h or '(blank)' }}</option>{% endfor %}
-  </select>
-</label>
-{%- endmacro %}
 {% block body %}
 <h1>Map columns</h1>
-{% if profile %}<p class="flash">Columns preselected from the mapping you saved for this bank (first used with <strong>{{ profile.name }}</strong>). Check them and import.</p>{% endif %}
+{% if profile %}<p class="flash">Columns preselected from the mapping you saved for this bank (<strong>{{ profile.name }}</strong>). Check them and import, or <a href="{{ url_for('import_profiles') }}">manage saved mappings</a>.</p>{% endif %}
 <p><strong>{{ pending.filename }}</strong>: {{ total }} row{{ '' if total == 1 else 's' }}. Preview:</p>
 <div class="scroll">
 <table class="preview">
@@ -23,33 +15,7 @@
 
 <form method="post" action="{{ url_for('import_commit', import_id=pending.id) }}" class="stacked">
   {{ csrf_field() }}
-  <fieldset><legend>Date</legend>
-    {{ colselect('date_col', 'Date column') }}
-    <label>Date format
-      <select name="date_fmt">
-        <option value="">choose…</option>
-        {% for fmt, label in date_formats %}<option value="{{ fmt }}" {% if sel.get('date_fmt', '') == fmt %}selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select>
-    </label>
-  </fieldset>
-  <fieldset><legend>Amount</legend>
-    <label><input type="radio" name="mode" value="single" {% if sel.get('mode', 'single') != 'split' %}checked{% endif %}> One signed amount column</label>
-    {{ colselect('amount_col', 'Amount column', True) }}
-    <label><input type="radio" name="mode" value="split" {% if sel.get('mode') == 'split' %}checked{% endif %}> Separate debit (money out) and credit (money in) columns</label>
-    {{ colselect('debit_col', 'Debit column', True) }}
-    {{ colselect('credit_col', 'Credit column', True) }}
-    <label>Decimal separator
-      <select name="decimal">
-        <option value="dot" {% if sel.get('decimal') != 'comma' %}selected{% endif %}>1,234.56</option>
-        <option value="comma" {% if sel.get('decimal') == 'comma' %}selected{% endif %}>1.234,56</option>
-      </select>
-    </label>
-    <label><input type="checkbox" name="negate" value="1" {% if sel.get('negate') %}checked{% endif %}> Flip signs (my bank shows spending as positive)</label>
-  </fieldset>
-  <fieldset><legend>Description</legend>
-    {{ colselect('payee_col', 'Payee column') }}
-    {{ colselect('note_col', 'Note column', True) }}
-  </fieldset>
+  {% include "_mapping_fields.html" %}
   <label><input type="checkbox" name="allow_duplicates" value="1" {% if sel.get('allow_duplicates') %}checked{% endif %}> Import rows that look like duplicates anyway</label>
   <label><input type="checkbox" name="remember" value="1" {% if sel.get('remember') %}checked{% endif %}> Remember this mapping for files with the same columns</label>
   <p><button type="submit">Import</button> <a href="{{ url_for('import_upload') }}">Start over</a></p>

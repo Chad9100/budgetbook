@@ -66,6 +66,8 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
   that bank, keyed by the file's header row ignoring case and spacing. The
   next file with the same columns opens with that mapping preselected. Untick
   "Remember this mapping" to skip saving; saving again replaces the old one.
+  The Saved mappings page (linked from Import) lists them; rename one, adjust
+  its columns, date format and options, or delete it.
 - **Duplicate detection.** A row with the same date, amount and payee
   (ignoring case and spacing) as a stored transaction is skipped, so
   re-importing an overlapping statement is safe. It counts copies: if the file

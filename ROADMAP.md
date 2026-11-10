@@ -20,7 +20,7 @@ Estimates are rough working hours for one person.
 
 - [x] Remember the column mapping per bank (keyed by the header row) and
       preselect it on the next upload
-- [ ] Name, edit and delete saved profiles
+- [x] Name, edit and delete saved profiles
 - [ ] Preview the first parsed rows (date, amount, payee) before committing
 
 ## v0.3: better rules (about 3 h)

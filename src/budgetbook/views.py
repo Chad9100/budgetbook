@@ -11,7 +11,8 @@ from . import db, rules
 from .csvimport import (DATE_FORMATS, KNOWN_FORMATS, decode, dup_key, guess_mapping,
                         mapping_from_form, parse_rows, read_rows,
                         split_duplicates)
-from .forms import (validate_name, validate_rule, validate_transaction)
+from .forms import (MAX_NAME, validate_name, validate_rule,
+                    validate_transaction)
 from .money import (cents_to_input, current_month, parse_amount, shift_month,
                     valid_month)
 
@@ -355,6 +356,15 @@ def register(app):
             sel["negate"] = "1" if saved["negate"] else ""
         return sel
 
+    def profile_mapping(form, mapping):
+        """What an import profile stores for a validated mapping form."""
+        saved = {name: form.get(name, "").strip() for name in PROFILE_COLS}
+        saved.update(date_fmt=mapping.date_fmt,
+                     mode="split" if mapping.amount_col is None else "single",
+                     decimal="comma" if mapping.decimal_comma else "dot",
+                     negate=mapping.negate)
+        return saved
+
     @app.get("/import/<int:import_id>")
     def import_map(import_id):
         pending, header, rows = load_pending(import_id)
@@ -398,14 +408,50 @@ def register(app):
             db.insert_transaction(tx, commit=False)
         db.get_db().commit()
         if request.form.get("remember"):
-            saved = {name: request.form.get(name, "").strip() for name in PROFILE_COLS}
-            saved.update(date_fmt=mapping.date_fmt,
-                         mode="split" if mapping.amount_col is None else "single",
-                         decimal="comma" if mapping.decimal_comma else "dot",
-                         negate=mapping.negate)
             name = os.path.splitext(pending["filename"])[0] or pending["filename"]
-            db.save_import_profile(header, name[:100], saved)
+            db.save_import_profile(header, name[:MAX_NAME],
+                                   profile_mapping(request.form, mapping))
         db.delete_pending_import(import_id)
         return render_template("import_result.html", filename=pending["filename"],
                                imported=new, duplicates=dupes, errors=row_errors,
                                categorised=categorised)
+
+    # --------------------------------------------------------- import profiles
+
+    @app.get("/import/profiles")
+    def import_profiles():
+        return render_template("import_profiles.html",
+                               profiles=db.list_import_profiles())
+
+    @app.route("/import/profiles/<int:profile_id>", methods=["GET", "POST"])
+    def edit_import_profile(profile_id):
+        profile = db.get_import_profile_by_id(profile_id)
+        if profile is None:
+            abort(404)
+        header = profile["header"]
+
+        def form_page(sel, errors=(), status=200):
+            return render_template("import_profile_form.html", profile=profile,
+                                   header=header, sel=sel, errors=list(errors),
+                                   date_formats=DATE_FORMATS), status
+
+        if request.method == "GET":
+            sel = profile_selection(profile["mapping"], len(header))
+            sel["name"] = profile["name"]
+            return form_page(sel)
+        name, errors = validate_name(request.form)
+        mapping, map_errors = mapping_from_form(request.form, len(header))
+        errors += map_errors
+        if errors:
+            return form_page(request.form, errors, 400)
+        db.update_import_profile(profile_id, name,
+                                 profile_mapping(request.form, mapping))
+        flash(f"Saved mapping \"{name}\" updated.")
+        return redirect(url_for("import_profiles"))
+
+    @app.post("/import/profiles/<int:profile_id>/delete")
+    def delete_import_profile(profile_id):
+        if not db.delete_import_profile(profile_id):
+            abort(404)
+        flash("Saved mapping deleted.")
+        return redirect(url_for("import_profiles"))

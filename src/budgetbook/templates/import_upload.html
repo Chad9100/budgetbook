@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Import{% endblock %}
+{% block title %}Import<p><a href="{{ url_for('import_profiles') }}">Saved mappings</a>: rename, adjust or delete the column mappings remembered for each bank.</p>
+{% endblock %}
 {% block body %}
 <h1>Import a bank CSV</h1>
 <p>Upload the CSV export from your bank. The first row must be a header.
@@ -10,4 +11,5 @@ saved until you confirm.</p>
   <label>CSV file <input type="file" name="file" accept=".csv,text/csv,text/plain" required></label>
   <p><button type="submit">Upload</button></p>
 </form>
+<p><a href="{{ url_for('import_profiles') }}">Saved mappings</a>: rename, adjust or delete the column mappings remembered for each bank.</p>
 {% endblock %}
