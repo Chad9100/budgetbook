@@ -17,6 +17,7 @@ from .money import (cents_to_input, current_month, parse_amount, shift_month,
                     valid_month)
 
 PREVIEW_ROWS = 5
+PARSED_PREVIEW_ROWS = 10
 # Mapping-form fields remembered in an import profile.
 PROFILE_COLS = ("date_col", "amount_col", "debit_col", "credit_col",
                 "payee_col", "note_col")
@@ -327,12 +328,13 @@ def register(app):
         header, rows = read_rows(pending["content"])
         return pending, header, rows
 
-    def map_page(pending, header, rows, sel, errors=(), status=200, profile=None):
+    def map_page(pending, header, rows, sel, errors=(), status=200, profile=None,
+                 parsed_preview=None):
         return render_template(
             "import_map.html", pending=pending, header=header,
             preview=rows[:PREVIEW_ROWS], total=len(rows), sel=sel,
             errors=list(errors), date_formats=DATE_FORMATS,
-            profile=profile), status
+            profile=profile, parsed_preview=parsed_preview), status
 
     def ncols_of(header, rows):
         return max([len(header)] + [len(c) for _, c in rows])
@@ -380,6 +382,27 @@ def register(app):
         sel["remember"] = "1"
         return map_page(pending, header, rows, sel, profile=profile)
 
+    def plan_import(parsed, allow_duplicates):
+        """Mark each parsed row as new or duplicate and pick its rule category.
+        Returns (new, dupes); nothing is written."""
+        dates = [t["date"] for t in parsed]
+        existing = db.existing_keys(min(dates), max(dates), dup_key)
+        new, dupes = split_duplicates(parsed, existing)
+        if allow_duplicates:
+            new, dupes = new + dupes, []
+        rule_list = rules.load_rules()
+        for tx in new:
+            tx["category_id"] = rules.pick_category(tx["payee"], rule_list)
+        for tx in dupes:
+            tx["duplicate"] = True
+        return new, dupes
+
+    def preview_rows(parsed, new, dupes):
+        """The first parsed rows, in file order, with what importing would do."""
+        names = {c["id"]: c["name"] for c in db.list_categories()}
+        shown = sorted(new + dupes, key=lambda t: t["line"])[:PARSED_PREVIEW_ROWS]
+        return [dict(t, category=names.get(t.get("category_id"), "")) for t in shown]
+
     @app.post("/import/<int:import_id>")
     def import_commit(import_id):
         pending, header, rows = load_pending(import_id)
@@ -395,15 +418,16 @@ def register(app):
                 shown.append(f"... and {more} more.")
             return map_page(pending, header, rows, request.form,
                             ["No row could be imported with this mapping."] + shown, 400)
-        dates = [t["date"] for t in parsed]
-        existing = db.existing_keys(min(dates), max(dates), dup_key)
-        new, dupes = split_duplicates(parsed, existing)
-        if request.form.get("allow_duplicates"):
-            new, dupes = new + dupes, []
-        rule_list = rules.load_rules()
+        new, dupes = plan_import(parsed, request.form.get("allow_duplicates"))
+        if request.form.get("action") == "preview":
+            return map_page(pending, header, rows, request.form, profile=None,
+                            parsed_preview={
+                                "rows": preview_rows(parsed, new, dupes),
+                                "parsed": len(parsed), "new": len(new),
+                                "duplicates": len(dupes),
+                                "errors": row_errors})
         categorised = 0
         for tx in new:
-            tx["category_id"] = rules.pick_category(tx["payee"], rule_list)
             categorised += tx["category_id"] is not None
             db.insert_transaction(tx, commit=False)
         db.get_db().commit()

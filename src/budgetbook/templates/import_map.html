@@ -13,11 +13,32 @@
 </table>
 </div>
 
+{% if parsed_preview %}{% set pp = parsed_preview %}
+<section id="parsed-preview">
+<h2>Parsed with this mapping</h2>
+<p>Nothing has been imported yet. Importing now would add <strong>{{ pp.new }}</strong> transaction{{ '' if pp.new == 1 else 's' }},
+skip {{ pp.duplicates }} duplicate{{ '' if pp.duplicates == 1 else 's' }}
+and leave out {{ pp.errors|length }} row{{ '' if pp.errors|length == 1 else 's' }} with errors.
+{% if pp.parsed > pp.rows|length %}First {{ pp.rows|length }} of {{ pp.parsed }} parsed rows:{% endif %}</p>
+<div class="scroll">
+<table class="preview">
+<thead><tr><th>Line</th><th>Date</th><th>Payee</th><th class="num">Amount</th><th>Category</th><th>Status</th></tr></thead>
+<tbody>
+{% for t in pp.rows %}<tr><td>{{ t.line }}</td><td>{{ t.date }}</td><td>{{ t.payee }}</td><td class="num">{{ t.amount_cents|signed_money }}</td><td>{{ t.category }}</td><td>{{ 'duplicate, skipped' if t.duplicate else 'new' }}</td></tr>{% endfor %}
+</tbody>
+</table>
+</div>
+{% if pp.errors %}<ul class="errors">{% for e in pp.errors[:10] %}<li>{{ e }}</li>{% endfor %}{% if pp.errors|length > 10 %}<li>... and {{ pp.errors|length - 10 }} more.</li>{% endif %}</ul>{% endif %}
+</section>
+{% endif %}
+
 <form method="post" action="{{ url_for('import_commit', import_id=pending.id) }}" class="stacked">
   {{ csrf_field() }}
   {% include "_mapping_fields.html" %}
   <label><input type="checkbox" name="allow_duplicates" value="1" {% if sel.get('allow_duplicates') %}checked{% endif %}> Import rows that look like duplicates anyway</label>
   <label><input type="checkbox" name="remember" value="1" {% if sel.get('remember') %}checked{% endif %}> Remember this mapping for files with the same columns</label>
-  <p><button type="submit">Import</button> <a href="{{ url_for('import_upload') }}">Start over</a></p>
+  <p><button type="submit" name="action" value="import">Import</button>
+     <button type="submit" name="action" value="preview">Preview</button>
+     <a href="{{ url_for('import_upload') }}">Start over</a></p>
 </form>
 {% endblock %}

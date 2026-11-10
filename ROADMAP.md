@@ -16,12 +16,12 @@ Estimates are rough working hours for one person.
 - [x] CSRF tokens on every form, autoescaped output
 - [x] `budgetbook init` / `budgetbook run`; pytest suite; CI on Ubuntu and Windows
 
-## v0.2: saved import profiles (about 3 h)
+## v0.2: saved import profiles (done)
 
 - [x] Remember the column mapping per bank (keyed by the header row) and
       preselect it on the next upload
 - [x] Name, edit and delete saved profiles
-- [ ] Preview the first parsed rows (date, amount, payee) before committing
+- [x] Preview the first parsed rows (date, amount, payee) before committing
 
 ## v0.3: better rules (about 3 h)
 

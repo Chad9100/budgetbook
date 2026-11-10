@@ -61,6 +61,11 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
   delimiters, `1.234,56` decimals, a "flip signs" option, UTF-8 with or without
   a BOM, and Windows-1252 are all handled. Rows that fail to parse are listed
   with their line number, and the rest import.
+- **Preview before importing.** On the mapping step, Preview parses the file
+  with the chosen mapping and shows the first ten rows as they would be
+  stored (date, signed amount, payee, the category a rule would give, and
+  whether the row is new or a skipped duplicate), plus how many rows would be
+  added, skipped or rejected. Nothing is written until you press Import.
 - **Remembered import mappings.** After a successful import the column
   mapping (columns, date format, decimal separator, flip signs) is saved for
   that bank, keyed by the file's header row ignoring case and spacing. The
