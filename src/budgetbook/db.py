@@ -13,12 +13,20 @@ from .money import month_range
 # 3: rules.match_type (added with ALTER TABLE when missing; existing rules
 #    keep working as "contains")
 # 4: rules.min_cents / rules.max_cents (nullable ALTERs; NULL = no limit)
-SCHEMA_VERSION = 4
+# 5: accounts table and transactions.account_id (nullable ALTER; existing
+#    transactions stay on "no account")
+SCHEMA_VERSION = 5
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS categories (
     id   INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE COLLATE NOCASE
+);
+CREATE TABLE IF NOT EXISTS accounts (
+    id            INTEGER PRIMARY KEY,
+    name          TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    kind          TEXT NOT NULL DEFAULT 'current',
+    opening_cents INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS transactions (
     id           INTEGER PRIMARY KEY,
@@ -27,7 +35,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     payee        TEXT NOT NULL,
     category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL,
     note         TEXT NOT NULL DEFAULT '',
-    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    account_id   INTEGER REFERENCES accounts(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS ix_transactions_date ON transactions(date);
 CREATE TABLE IF NOT EXISTS rules (
@@ -80,6 +89,12 @@ def ensure_schema(conn):
     for col in ("min_cents", "max_cents"):
         if col not in rule_cols:
             conn.execute(f"ALTER TABLE rules ADD COLUMN {col} INTEGER")
+    tx_cols = {r[1] for r in conn.execute("PRAGMA table_info(transactions)")}
+    if "account_id" not in tx_cols:
+        conn.execute("ALTER TABLE transactions ADD COLUMN"
+                     " account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL")
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_transactions_account"
+                 " ON transactions(account_id)")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     conn.commit()
 
@@ -174,17 +189,62 @@ def delete_category(cat_id):
     return cur.rowcount > 0
 
 
+# ------------------------------------------------------------------ accounts
+
+ACCOUNT_KINDS = {"current": "Current", "savings": "Savings",
+                 "credit": "Credit card", "cash": "Cash"}
+
+
+def list_accounts():
+    """Accounts with ``balance_cents`` (opening balance plus all their
+    transactions) and ``tx_count``."""
+    return get_db().execute(
+        "SELECT a.id, a.name, a.kind, a.opening_cents,"
+        " a.opening_cents + COALESCE(SUM(t.amount_cents), 0) AS balance_cents,"
+        " COUNT(t.id) AS tx_count"
+        " FROM accounts a LEFT JOIN transactions t ON t.account_id = a.id"
+        " GROUP BY a.id ORDER BY a.name COLLATE NOCASE").fetchall()
+
+
+def get_account(account_id):
+    return get_db().execute(
+        "SELECT id, name, kind, opening_cents FROM accounts WHERE id = ?",
+        (account_id,)).fetchone()
+
+
+def add_account(name, kind="current", opening_cents=0):
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            "INSERT INTO accounts (name, kind, opening_cents) VALUES (?, ?, ?)",
+            (name, kind, opening_cents))
+    except sqlite3.IntegrityError:
+        raise ValueError(f"account {name!r} already exists") from None
+    conn.commit()
+    return cur.lastrowid
+
+
+def delete_account(account_id):
+    """Delete an account; its transactions are kept with no account."""
+    conn = get_db()
+    cur = conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
+    conn.commit()
+    return cur.rowcount > 0
+
+
 # -------------------------------------------------------------- transactions
 
 _TX_SELECT = """
 SELECT t.id, t.date, t.amount_cents, t.payee, t.category_id, t.note,
-       c.name AS category
+       c.name AS category, t.account_id, a.name AS account
 FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
+LEFT JOIN accounts a ON a.id = t.account_id
 """
 
 
-def list_transactions(month=None, q="", category=""):
-    """``category`` is "" (all), "none" (uncategorised) or a category id."""
+def list_transactions(month=None, q="", category="", account=""):
+    """``category`` is "" (all), "none" (uncategorised) or a category id;
+    ``account`` is "" (all), "none" (no account) or an account id."""
     where, args = [], []
     if month:
         start, end = month_range(month)
@@ -199,6 +259,11 @@ def list_transactions(month=None, q="", category=""):
     elif category:
         where.append("t.category_id = ?")
         args.append(int(category))
+    if account == "none":
+        where.append("t.account_id IS NULL")
+    elif account:
+        where.append("t.account_id = ?")
+        args.append(int(account))
     sql = _TX_SELECT
     if where:
         sql += " WHERE " + " AND ".join(where)
@@ -213,10 +278,10 @@ def get_transaction(tx_id):
 def insert_transaction(tx, commit=True):
     conn = get_db()
     cur = conn.execute(
-        "INSERT INTO transactions (date, amount_cents, payee, category_id, note)"
-        " VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO transactions (date, amount_cents, payee, category_id, note,"
+        " account_id) VALUES (?, ?, ?, ?, ?, ?)",
         (tx["date"], tx["amount_cents"], tx["payee"], tx.get("category_id"),
-         tx.get("note", "")))
+         tx.get("note", ""), tx.get("account_id")))
     if commit:
         conn.commit()
     return cur.lastrowid
@@ -226,9 +291,9 @@ def update_transaction(tx_id, tx):
     conn = get_db()
     cur = conn.execute(
         "UPDATE transactions SET date = ?, amount_cents = ?, payee = ?,"
-        " category_id = ?, note = ? WHERE id = ?",
+        " category_id = ?, note = ?, account_id = ? WHERE id = ?",
         (tx["date"], tx["amount_cents"], tx["payee"], tx.get("category_id"),
-         tx.get("note", ""), tx_id))
+         tx.get("note", ""), tx.get("account_id"), tx_id))
     conn.commit()
     return cur.rowcount > 0
 

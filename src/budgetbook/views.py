@@ -11,7 +11,7 @@ from . import db, rules
 from .csvimport import (DATE_FORMATS, KNOWN_FORMATS, decode, dup_key, guess_mapping,
                         mapping_from_form, parse_rows, read_rows,
                         split_duplicates)
-from .forms import (MAX_NAME, validate_name, validate_rule,
+from .forms import (MAX_NAME, validate_account, validate_name, validate_rule,
                     validate_transaction)
 from .money import (amount_range_text, cents_to_input, current_month, parse_amount, shift_month,
                     valid_month)
@@ -59,11 +59,15 @@ def register(app):
         category = request.args.get("category", "")
         if category not in ("", "none") and not category.isdigit():
             category = ""
-        txs = db.list_transactions(month or None, q, category)
+        account = request.args.get("account", "")
+        if account not in ("", "none") and not account.isdigit():
+            account = ""
+        txs = db.list_transactions(month or None, q, category, account)
         income = sum(t["amount_cents"] for t in txs if t["amount_cents"] > 0)
         spent = -sum(t["amount_cents"] for t in txs if t["amount_cents"] < 0)
         return render_template(
             "transactions.html", txs=txs, month=month, q=q, category=category,
+            account=account, accounts=db.list_accounts(),
             categories=db.list_categories(), income=income, spent=spent,
             this_month=current_month(),
             prev_month=shift_month(month, -1) if month else "",
@@ -71,15 +75,20 @@ def register(app):
 
     def tx_form(tx, errors=(), status=200):
         return render_template("tx_form.html", tx=tx, errors=list(errors),
-                               categories=db.list_categories()), status
+                               categories=db.list_categories(),
+                               accounts=db.list_accounts()), status
 
     def category_ids():
         return {c["id"] for c in db.list_categories()}
 
+    def account_ids():
+        return {a["id"] for a in db.list_accounts()}
+
     @app.route("/transactions/new", methods=["GET", "POST"])
     def add_transaction():
         if request.method == "POST":
-            clean, errors = validate_transaction(request.form, category_ids())
+            clean, errors = validate_transaction(request.form, category_ids(),
+                                                 account_ids())
             if errors:
                 return tx_form(request.form, errors, 400)
             if clean["category_id"] is None:
@@ -96,7 +105,8 @@ def register(app):
         if tx is None:
             abort(404)
         if request.method == "POST":
-            clean, errors = validate_transaction(request.form, category_ids())
+            clean, errors = validate_transaction(request.form, category_ids(),
+                                                 account_ids())
             if errors:
                 return tx_form({**request.form, "id": tx_id}, errors, 400)
             if clean["category_id"] is None:
@@ -109,7 +119,36 @@ def register(app):
         values["kind"] = "income" if tx["amount_cents"] > 0 else "expense"
         values["amount"] = cents_to_input(tx["amount_cents"])
         values["category_id"] = "" if tx["category_id"] is None else str(tx["category_id"])
+        values["account_id"] = "" if tx["account_id"] is None else str(tx["account_id"])
         return tx_form(values)
+
+    # ---------------------------------------------------------------- accounts
+
+    def accounts_page(errors=(), status=200):
+        return render_template("accounts.html", accounts=db.list_accounts(),
+                               kinds=db.ACCOUNT_KINDS, errors=list(errors)), status
+
+    @app.route("/accounts", methods=["GET", "POST"])
+    def accounts():
+        if request.method == "POST":
+            clean, errors = validate_account(request.form)
+            if not errors:
+                try:
+                    db.add_account(clean["name"], clean["kind"], clean["opening_cents"])
+                except ValueError as e:
+                    errors = [str(e).capitalize() + "."]
+            if errors:
+                return accounts_page(errors, 400)
+            flash(f"Account {clean['name']!r} added.")
+            return redirect(url_for("accounts"))
+        return accounts_page()
+
+    @app.post("/accounts/<int:account_id>/delete")
+    def delete_account(account_id):
+        if not db.delete_account(account_id):
+            abort(404)
+        flash("Account deleted; its transactions are kept with no account.")
+        return redirect(url_for("accounts"))
 
     @app.post("/transactions/<int:tx_id>/delete")
     def delete_transaction(tx_id):

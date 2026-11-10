@@ -20,8 +20,38 @@ def parse_iso_date(text):
     return datetime.strptime((text or "").strip(), "%Y-%m-%d").date().isoformat()
 
 
-def validate_transaction(form, category_ids):
+def validate_account(form):
+    """Validate the new-account form: name, kind and opening balance."""
+    from .db import ACCOUNT_KINDS
+    name, errors = validate_name(form)
+    kind = (form.get("kind") or "current").strip()
+    if kind not in ACCOUNT_KINDS:
+        errors.append("Unknown account type.")
+    opening = 0
+    text = (form.get("opening") or "").strip()
+    if text:
+        try:
+            opening = parse_amount(text)
+        except ValueError as e:
+            errors.append(f"Opening balance: {e}.")
+    return {"name": name, "kind": kind, "opening_cents": opening}, errors
+
+
+def parse_account(value, account_ids):
+    """Return (account_id or None, error or None); blank means no account."""
+    value = (value or "").strip()
+    if not value:
+        return None, None
+    if not value.isdigit() or int(value) not in account_ids:
+        return None, "Unknown account."
+    return int(value), None
+
+
+def validate_transaction(form, category_ids, account_ids=()):
     errors, clean = [], {}
+    clean["account_id"], err = parse_account(form.get("account_id"), account_ids)
+    if err:
+        errors.append(err)
     try:
         clean["date"] = parse_iso_date(form.get("date"))
     except ValueError:

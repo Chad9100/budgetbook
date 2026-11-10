@@ -17,6 +17,12 @@
       {% for c in categories %}<option value="{{ c.id }}" {% if tx.category_id|string == c.id|string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
     </select>
   </label>
+  {% if accounts %}<label>Account
+    <select name="account_id">
+      <option value="">(none)</option>
+      {% for a in accounts %}<option value="{{ a.id }}" {% if tx.account_id|string == a.id|string %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+    </select>
+  </label>{% endif %}
   <label>Note <textarea name="note" rows="2" maxlength="1000">{{ tx.note }}</textarea></label>
   <p><button type="submit">Save</button> <a href="{{ url_for('index') }}">Cancel</a></p>
 </form>

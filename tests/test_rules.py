@@ -228,7 +228,7 @@ def test_version_3_database_gains_amount_columns(tmp_path):
         assert db.list_rules()[1]["max_cents"] == 9000
     create_app({"TESTING": True, "SECRET_KEY": "t", "DATABASE": str(path)})
     conn = sqlite3.connect(path)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
     conn.close()
 
 

@@ -55,6 +55,11 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
 - **Transactions:** add, edit and delete transactions with a date, amount,
   payee, category and note. Filter by month, category (or "uncategorised")
   and a search over payee and note. Export the list (or one month) as CSV.
+- **Accounts:** add accounts (current, savings, credit card, cash) with an
+  opening balance; the Accounts page shows each balance (opening plus its
+  transactions). Pick an account on a transaction and filter the list by
+  account. Older databases upgrade in place and keep their transactions with
+  no account. Transfers and choosing an account on import come later.
 - **Money as integer cents.** Amounts are stored as integer cents (negative
   means money out), so totals are exact. The forms accept `1,234.56`, `$12`,
   `(12.00)` and similar. An ambiguous value such as `12,50` is rejected

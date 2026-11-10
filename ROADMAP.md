@@ -32,9 +32,16 @@ Estimates are rough working hours for one person.
 - [x] Re-run rules over already categorised transactions, with a preview of
       what would change
 
-## v0.4: accounts and transfers (about 4 h)
+## v0.4: accounts and transfers (about 4 h, split in two)
 
-- [ ] Accounts (current, savings, credit card) with an opening balance
+Part 1 (about 1 h): accounts and the account on a transaction.
+
+- [x] Accounts (current, savings, credit card) with an opening balance;
+      account on each transaction, filter and balance per account; safe
+      migration of older databases
+
+Part 2:
+
 - [ ] Choose the account when importing; running balance per account
 - [ ] Mark a pair of transactions as a transfer so it is left out of income
       and expenses

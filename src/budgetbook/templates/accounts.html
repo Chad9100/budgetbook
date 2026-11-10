@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Accounts{% endblock %}
+{% block body %}
+<h1>Accounts</h1>
+<form method="post" action="{{ url_for('accounts') }}" class="inline">
+  {{ csrf_field() }}
+  <label>Name <input type="text" name="name" maxlength="60" required></label>
+  <label>Type
+    <select name="kind">
+      {% for k, label in kinds.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Opening balance <input type="text" name="opening" inputmode="decimal" placeholder="0.00"></label>
+  <button type="submit">Add</button>
+</form>
+{% if accounts %}
+<table>
+<thead><tr><th>Name</th><th>Type</th><th class="num">Opening</th><th class="num">Transactions</th><th class="num">Balance</th><th></th></tr></thead>
+<tbody>
+{% for a in accounts %}
+<tr>
+  <td><a href="{{ url_for('index', account=a.id) }}">{{ a.name }}</a></td>
+  <td>{{ kinds.get(a.kind, a.kind) }}</td>
+  <td class="num">{{ a.opening_cents|money }}</td>
+  <td class="num">{{ a.tx_count }}</td>
+  <td class="num {{ 'neg' if a.balance_cents < 0 else 'pos' }}">{{ a.balance_cents|money }}</td>
+  <td class="actions">
+    <form method="post" action="{{ url_for('delete_account', account_id=a.id) }}" onsubmit="return confirm('Delete this account? Its transactions are kept with no account.')">
+      {{ csrf_field() }}<button type="submit" class="link">Delete</button>
+    </form>
+  </td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p class="empty">No accounts yet. Add one above to track balances per account.</p>
+{% endif %}
+{% endblock %}
