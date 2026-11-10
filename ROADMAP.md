@@ -53,7 +53,7 @@ Estimates are rough working hours for one person.
 
 ## v0.7: backups and data portability (about 2 h)
 
-- [ ] `budgetbook backup` writes a consistent copy using SQLite's backup API
+- [x] `budgetbook backup` writes a consistent copy using SQLite's backup API
 - [ ] `budgetbook export --json` and a matching `import --json` for moving
       everything (categories, rules, budgets, transactions) between machines
 

@@ -73,3 +73,51 @@ def test_version_and_missing_command(capsys):
     assert __version__ in capsys.readouterr().out
     with pytest.raises(SystemExit):
         main([])
+
+
+def _seed(path):
+    main(["init", "--db", str(path)])
+    conn = sqlite3.connect(path)
+    conn.execute("INSERT INTO transactions (date, amount_cents, payee) VALUES ('2025-01-02', -500, 'Cafe')")
+    conn.commit()
+    conn.close()
+
+
+def test_backup_copies_data(tmp_path, capsys):
+    src, dest = tmp_path / "a.db", tmp_path / "out" / "b.db"
+    _seed(src)
+    assert main(["backup", "--db", str(src), "--out", str(dest)]) == 0
+    assert "Backed up 1 transactions" in capsys.readouterr().out
+    conn = sqlite3.connect(dest)
+    assert conn.execute("SELECT payee FROM transactions").fetchone()[0] == "Cafe"
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
+    conn.close()
+
+
+def test_backup_refuses_overwrite_unless_forced(tmp_path, capsys):
+    src, dest = tmp_path / "a.db", tmp_path / "b.db"
+    _seed(src)
+    dest.write_text("keep me")
+    assert main(["backup", "--db", str(src), "--out", str(dest)]) == 1
+    assert dest.read_text() == "keep me"
+    assert "already exists" in capsys.readouterr().err
+    assert main(["backup", "--db", str(src), "--out", str(dest), "--force"]) == 0
+    conn = sqlite3.connect(dest)
+    assert conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0] == 1
+    conn.close()
+
+
+def test_backup_missing_db_and_same_file(tmp_path, capsys):
+    missing = tmp_path / "none.db"
+    assert main(["backup", "--db", str(missing), "--out", str(tmp_path / "o.db")]) == 1
+    assert "backup failed" in capsys.readouterr().err
+    assert not missing.exists()
+    _seed(tmp_path / "a.db")
+    assert main(["backup", "--db", str(tmp_path / "a.db"), "--out", str(tmp_path / "a.db")]) == 2
+
+
+def test_backup_default_name_in_cwd(tmp_path, monkeypatch):
+    _seed(tmp_path / "a.db")
+    monkeypatch.chdir(tmp_path)
+    assert main(["backup", "--db", "a.db"]) == 0
+    assert len(list(tmp_path.glob("budgetbook-backup-*.db"))) == 1

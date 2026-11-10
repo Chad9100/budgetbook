@@ -35,6 +35,7 @@ Then open <http://127.0.0.1:5000> in a browser.
 | --- | --- |
 | `budgetbook init` | `--db PATH`, `--no-categories` (start with no categories) |
 | `budgetbook run` | `--db PATH`, `--host` (default `127.0.0.1`), `--port` (default `5000`), `--debug` |
+| `budgetbook backup` | `--db PATH`, `--out FILE` (default `budgetbook-backup-YYYYMMDD-HHMMSS.db` in the current folder), `--force` (overwrite) |
 
 The database path defaults to `$BUDGETBOOK_DB`, or `budgetbook.db` in the
 current folder. `run` creates the database if it does not exist yet (without
@@ -42,7 +43,10 @@ starter categories). budgetbook has no login, so it listens on localhost only
 unless you pass `--host`, and then it prints a warning.
 
 A random session key is stored next to the database as `<db>.secret` (set
-`BUDGETBOOK_SECRET` to use your own). Back up the `.db` file to back up your data.
+`BUDGETBOOK_SECRET` to use your own). `budgetbook backup` writes a consistent
+copy of the database using SQLite's backup API, so it is safe to run while the
+app is serving; it never overwrites an existing file without `--force`. It
+does not copy the `.secret` file (a new one is made on first run).
 
 To try it with sample data, import [examples/bank-statement.csv](examples/bank-statement.csv).
 

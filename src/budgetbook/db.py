@@ -84,6 +84,23 @@ def ensure_schema(conn):
     conn.commit()
 
 
+def backup_file(src, dest):
+    """Write a consistent copy of the database at ``src`` to ``dest`` using
+    SQLite's online backup API, so it is safe while the app is running.
+    Returns the number of transactions in the copy."""
+    if not os.path.isfile(src):
+        raise FileNotFoundError(f"no database at {src}")
+    os.makedirs(os.path.dirname(os.path.abspath(dest)), exist_ok=True)
+    source = sqlite3.connect(src)
+    target = sqlite3.connect(dest)
+    try:
+        source.backup(target)
+        return target.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
+    finally:
+        target.close()
+        source.close()
+
+
 def init_file(path, seed=False):
     """Create the database file (and its folder) if needed. Returns True when
     default categories were added."""

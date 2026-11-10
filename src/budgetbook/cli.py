@@ -3,6 +3,7 @@ import argparse
 import os
 import sqlite3
 import sys
+from datetime import datetime
 
 from . import __version__, db
 
@@ -25,6 +26,13 @@ def build_parser():
                       help="database file (default: $BUDGETBOOK_DB or ./budgetbook.db)")
     init.add_argument("--no-categories", action="store_true",
                       help="do not add the starter categories")
+
+    bk = sub.add_parser("backup", help="write a consistent copy of the database")
+    bk.add_argument("--db", default=None,
+                    help="database file (default: $BUDGETBOOK_DB or ./budgetbook.db)")
+    bk.add_argument("--out", default=None,
+                    help="backup file (default: budgetbook-backup-YYYYMMDD-HHMMSS.db)")
+    bk.add_argument("--force", action="store_true", help="overwrite an existing backup file")
 
     run = sub.add_parser("run", help="start the web app")
     run.add_argument("--db", default=None,
@@ -50,6 +58,25 @@ def main(argv=None):
         print(f"{'Database ready' if existed else 'Created database'}: {os.path.abspath(path)}")
         if seeded:
             print(f"Added {len(db.DEFAULT_CATEGORIES)} starter categories.")
+        return 0
+
+    if args.command == "backup":
+        out = args.out or datetime.now().strftime("budgetbook-backup-%Y%m%d-%H%M%S.db")
+        if os.path.abspath(out) == os.path.abspath(path):
+            print("budgetbook: the backup file must differ from the database", file=sys.stderr)
+            return 2
+        if os.path.exists(out) and not args.force:
+            print(f"budgetbook: {out} already exists (use --force to overwrite)",
+                  file=sys.stderr)
+            return 1
+        try:
+            if os.path.exists(path) and os.path.exists(out):
+                os.remove(out)
+            count = db.backup_file(path, out)
+        except (OSError, sqlite3.Error) as e:
+            print(f"budgetbook: backup failed: {e}", file=sys.stderr)
+            return 1
+        print(f"Backed up {count} transactions to {os.path.abspath(out)}")
         return 0
 
     if args.command == "run":
