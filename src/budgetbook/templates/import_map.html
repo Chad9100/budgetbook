@@ -10,6 +10,7 @@
 {%- endmacro %}
 {% block body %}
 <h1>Map columns</h1>
+{% if profile %}<p class="flash">Columns preselected from the mapping you saved for this bank (first used with <strong>{{ profile.name }}</strong>). Check them and import.</p>{% endif %}
 <p><strong>{{ pending.filename }}</strong>: {{ total }} row{{ '' if total == 1 else 's' }}. Preview:</p>
 <div class="scroll">
 <table class="preview">
@@ -50,6 +51,7 @@
     {{ colselect('note_col', 'Note column', True) }}
   </fieldset>
   <label><input type="checkbox" name="allow_duplicates" value="1" {% if sel.get('allow_duplicates') %}checked{% endif %}> Import rows that look like duplicates anyway</label>
+  <label><input type="checkbox" name="remember" value="1" {% if sel.get('remember') %}checked{% endif %}> Remember this mapping for files with the same columns</label>
   <p><button type="submit">Import</button> <a href="{{ url_for('import_upload') }}">Start over</a></p>
 </form>
 {% endblock %}

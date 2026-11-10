@@ -20,7 +20,7 @@ DATE_FORMATS = [
     ("%m-%d-%Y", "MM-DD-YYYY"),
     ("%Y%m%d", "YYYYMMDD"),
 ]
-_KNOWN_FORMATS = {f for f, _ in DATE_FORMATS}
+KNOWN_FORMATS = {f for f, _ in DATE_FORMATS}
 
 _GUESSES = {
     "date": ["date", "booking date", "transaction date", "posted", "posting date", "value date"],
@@ -159,7 +159,7 @@ def mapping_from_form(form, ncols):
     else:
         amount_col = col("amount_col", "amount", True)
     date_fmt = form.get("date_fmt", "")
-    if date_fmt not in _KNOWN_FORMATS:
+    if date_fmt not in KNOWN_FORMATS:
         errors.append("Choose a date format.")
     mapping = Mapping(
         date_col=date_col, date_fmt=date_fmt, payee_col=payee_col,

@@ -18,7 +18,7 @@ Estimates are rough working hours for one person.
 
 ## v0.2: saved import profiles (about 3 h)
 
-- [ ] Remember the column mapping per bank (keyed by the header row) and
+- [x] Remember the column mapping per bank (keyed by the header row) and
       preselect it on the next upload
 - [ ] Name, edit and delete saved profiles
 - [ ] Preview the first parsed rows (date, amount, payee) before committing

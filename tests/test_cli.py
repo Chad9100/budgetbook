@@ -5,7 +5,7 @@ import pytest
 
 from budgetbook import __version__
 from budgetbook.cli import main
-from budgetbook.db import DEFAULT_CATEGORIES
+from budgetbook.db import DEFAULT_CATEGORIES, SCHEMA_VERSION
 
 
 def test_init_creates_db_with_starter_categories(tmp_path, capsys):
@@ -16,7 +16,7 @@ def test_init_creates_db_with_starter_categories(tmp_path, capsys):
     conn = sqlite3.connect(path)
     names = [r[0] for r in conn.execute("SELECT name FROM categories ORDER BY id")]
     assert names == DEFAULT_CATEGORIES
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     conn.close()
 
 

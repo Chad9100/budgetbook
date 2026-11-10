@@ -1,13 +1,14 @@
 """Routes. All state changes are POST forms protected by the CSRF token."""
 import csv
 import io
+import os
 from datetime import date
 
 from flask import (Response, abort, flash, redirect, render_template, request,
                    url_for)
 
 from . import db, rules
-from .csvimport import (DATE_FORMATS, decode, dup_key, guess_mapping,
+from .csvimport import (DATE_FORMATS, KNOWN_FORMATS, decode, dup_key, guess_mapping,
                         mapping_from_form, parse_rows, read_rows,
                         split_duplicates)
 from .forms import (validate_name, validate_rule, validate_transaction)
@@ -15,6 +16,9 @@ from .money import (cents_to_input, current_month, parse_amount, shift_month,
                     valid_month)
 
 PREVIEW_ROWS = 5
+# Mapping-form fields remembered in an import profile.
+PROFILE_COLS = ("date_col", "amount_col", "debit_col", "credit_col",
+                "payee_col", "note_col")
 TREND_MONTHS = 6
 
 
@@ -322,11 +326,34 @@ def register(app):
         header, rows = read_rows(pending["content"])
         return pending, header, rows
 
-    def map_page(pending, header, rows, sel, errors=(), status=200):
+    def map_page(pending, header, rows, sel, errors=(), status=200, profile=None):
         return render_template(
             "import_map.html", pending=pending, header=header,
             preview=rows[:PREVIEW_ROWS], total=len(rows), sel=sel,
-            errors=list(errors), date_formats=DATE_FORMATS), status
+            errors=list(errors), date_formats=DATE_FORMATS,
+            profile=profile), status
+
+    def ncols_of(header, rows):
+        return max([len(header)] + [len(c) for _, c in rows])
+
+    def profile_selection(saved, ncols):
+        """The usable part of a saved mapping; anything stale or malformed is
+        dropped so the guessed value is used instead."""
+        sel = {}
+        for name in PROFILE_COLS:
+            value = saved.get(name)
+            if value == "" or (isinstance(value, str) and value.isdigit()
+                               and int(value) < ncols):
+                sel[name] = value
+        if saved.get("date_fmt") in KNOWN_FORMATS:
+            sel["date_fmt"] = saved["date_fmt"]
+        if saved.get("mode") in ("single", "split"):
+            sel["mode"] = saved["mode"]
+        if saved.get("decimal") in ("dot", "comma"):
+            sel["decimal"] = saved["decimal"]
+        if "negate" in saved:
+            sel["negate"] = "1" if saved["negate"] else ""
+        return sel
 
     @app.get("/import/<int:import_id>")
     def import_map(import_id):
@@ -337,12 +364,16 @@ def register(app):
                "credit_col": g["credit"], "payee_col": g["payee"],
                "note_col": g["note"], "decimal": "dot"}
         sel = {k: ("" if v is None else str(v)) for k, v in sel.items()}
-        return map_page(pending, header, rows, sel)
+        profile = db.get_import_profile(header)
+        if profile is not None:
+            sel.update(profile_selection(profile["mapping"], ncols_of(header, rows)))
+        sel["remember"] = "1"
+        return map_page(pending, header, rows, sel, profile=profile)
 
     @app.post("/import/<int:import_id>")
     def import_commit(import_id):
         pending, header, rows = load_pending(import_id)
-        ncols = max([len(header)] + [len(c) for _, c in rows])
+        ncols = ncols_of(header, rows)
         mapping, errors = mapping_from_form(request.form, ncols)
         if errors:
             return map_page(pending, header, rows, request.form, errors, 400)
@@ -366,6 +397,14 @@ def register(app):
             categorised += tx["category_id"] is not None
             db.insert_transaction(tx, commit=False)
         db.get_db().commit()
+        if request.form.get("remember"):
+            saved = {name: request.form.get(name, "").strip() for name in PROFILE_COLS}
+            saved.update(date_fmt=mapping.date_fmt,
+                         mode="split" if mapping.amount_col is None else "single",
+                         decimal="comma" if mapping.decimal_comma else "dot",
+                         negate=mapping.negate)
+            name = os.path.splitext(pending["filename"])[0] or pending["filename"]
+            db.save_import_profile(header, name[:100], saved)
         db.delete_pending_import(import_id)
         return render_template("import_result.html", filename=pending["filename"],
                                imported=new, duplicates=dupes, errors=row_errors,

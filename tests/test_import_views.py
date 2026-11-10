@@ -138,3 +138,113 @@ def test_example_statement_imports_with_guessed_mapping(post, client, txs):
     body = post(f"/import/{import_id(r)}", {**form, "mode": "single"}).get_data(as_text=True)
     assert "imported 13 transactions" in body
     assert sum(t["amount_cents"] for t in txs()) == 285000 - 95000 - 4217 - 3840 - 1099 - 865 - 620 - 6130 - 5502 - 1450 - 2399 + 999 - 480
+
+
+# ---------------------------------------------------------- saved profiles
+
+SEMICOLON_CSV = (
+    "Buchungstag;Empfaenger;Soll;Haben\n"
+    "01.10.2026;REWE Markt;12,50;\n"
+    "02.10.2026;Arbeitgeber GmbH;;2.000,00\n"
+)
+SEMICOLON_MAPPING = {"date_col": "0", "date_fmt": "%d.%m.%Y", "mode": "split",
+                     "debit_col": "2", "credit_col": "3", "payee_col": "1",
+                     "note_col": "", "decimal": "comma", "remember": "1"}
+
+
+def selected(body, name):
+    m = re.search(rf'name="{name}">(.*?)</select>', body, re.S)
+    found = re.search(r'<option value="([^"]*)" selected', m.group(1))
+    return found.group(1) if found else ""
+
+
+def test_mapping_is_remembered_and_preselected_for_same_header(post, client, txs):
+    r = post(f"/import/{import_id(upload(post, SEMICOLON_CSV, 'dkb-october.csv'))}",
+             SEMICOLON_MAPPING)
+    assert r.status_code == 200 and len(txs()) == 2
+    # next month's statement has the same columns (header case/spacing differ)
+    again = SEMICOLON_CSV.replace("Buchungstag", "BUCHUNGSTAG ").replace("10.2026", "11.2026")
+    body = client.get(upload(post, again, "dkb-november.csv").headers["Location"]).get_data(as_text=True)
+    assert "mapping you saved for this bank" in body and "dkb-october" in body
+    assert selected(body, "date_col") == "0"
+    assert selected(body, "date_fmt") == "%d.%m.%Y"
+    assert selected(body, "debit_col") == "2" and selected(body, "credit_col") == "3"
+    assert selected(body, "decimal") == "comma"
+    assert re.search(r'name="mode" value="split" checked', body)
+    assert 'name="remember" value="1" checked' in body
+
+
+def test_without_remember_nothing_is_saved(post, client):
+    data = dict(SEMICOLON_MAPPING)
+    del data["remember"]
+    post(f"/import/{import_id(upload(post, SEMICOLON_CSV))}", data)
+    body = client.get(upload(post, SEMICOLON_CSV).headers["Location"]).get_data(as_text=True)
+    assert "mapping you saved" not in body
+    assert selected(body, "decimal") == "dot"
+
+
+def test_different_header_falls_back_to_guesses(post, client):
+    post(f"/import/{import_id(upload(post, SEMICOLON_CSV))}", SEMICOLON_MAPPING)
+    body = client.get(upload(post, BANK_CSV).headers["Location"]).get_data(as_text=True)
+    assert "mapping you saved" not in body
+    assert selected(body, "amount_col") == "2"
+
+
+def test_saving_again_updates_the_profile(post, client):
+    post(f"/import/{import_id(upload(post, BANK_CSV))}", {**MAPPING, "remember": "1"})
+    post(f"/import/{import_id(upload(post, BANK_CSV))}",
+         {**MAPPING, "note_col": "", "negate": "1", "remember": "1",
+          "allow_duplicates": "1"})
+    body = client.get(upload(post, BANK_CSV).headers["Location"]).get_data(as_text=True)
+    assert selected(body, "note_col") == ""
+    assert 'name="negate" value="1" checked' in body
+    # allow_duplicates is a per-import choice, never remembered
+    assert 'name="allow_duplicates" value="1" checked' not in body
+
+
+def test_stale_or_malformed_profile_values_are_ignored(app, post, client):
+    with app.app_context():
+        conn = db.get_db()
+        conn.execute("INSERT INTO import_profiles (header_key, name, mapping) VALUES (?, ?, ?)",
+                     (db.header_key(["Date", "Description", "Amount", "Reference"]), "old",
+                      '{"date_col": "9", "amount_col": "x", "date_fmt": "%s", "payee_col": "3"}'))
+        conn.commit()
+    body = client.get(upload(post, BANK_CSV).headers["Location"]).get_data(as_text=True)
+    assert selected(body, "date_col") == "0"      # out of range -> guess
+    assert selected(body, "amount_col") == "2"    # not a number -> guess
+    assert selected(body, "payee_col") == "3"     # valid saved value wins
+    assert '<option value="%Y-%m-%d" selected' in body
+
+
+def test_failed_import_does_not_save_profile(post, client):
+    iid = import_id(upload(post, BANK_CSV))
+    r = post(f"/import/{iid}", {**MAPPING, "date_fmt": "%d/%m/%Y", "remember": "1"})
+    assert r.status_code == 400
+    body = client.get(upload(post, BANK_CSV).headers["Location"]).get_data(as_text=True)
+    assert "mapping you saved" not in body
+
+
+def test_version_1_database_is_upgraded_in_place(tmp_path):
+    import sqlite3
+
+    from budgetbook import create_app
+
+    path = tmp_path / "old.db"
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        "CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE);"
+        "CREATE TABLE transactions (id INTEGER PRIMARY KEY, date TEXT NOT NULL,"
+        " amount_cents INTEGER NOT NULL, payee TEXT NOT NULL, category_id INTEGER,"
+        " note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')));"
+        "INSERT INTO transactions (date, amount_cents, payee) VALUES ('2026-10-01', -500, 'Kept');"
+        "PRAGMA user_version = 1;")
+    conn.close()
+    app = create_app({"TESTING": True, "SECRET_KEY": "t", "DATABASE": str(path)})
+    with app.app_context():
+        assert [t["payee"] for t in db.list_transactions()] == ["Kept"]
+        assert db.get_import_profile(["Date"]) is None
+        db.save_import_profile(["Date"], "x", {"date_col": "0"})
+        assert db.get_import_profile([" date "])["mapping"] == {"date_col": "0"}
+    conn = sqlite3.connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
+    conn.close()

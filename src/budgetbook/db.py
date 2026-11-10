@@ -1,4 +1,5 @@
 """SQLite storage. Every amount is stored as integer cents (negative = money out)."""
+import json
 import os
 import sqlite3
 from collections import Counter
@@ -7,7 +8,9 @@ from flask import current_app, g
 
 from .money import month_range
 
-SCHEMA_VERSION = 1
+# 2: import_profiles (added with CREATE TABLE IF NOT EXISTS, so opening a
+#    version-1 database upgrades it in place without touching existing data)
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS categories (
@@ -40,6 +43,13 @@ CREATE TABLE IF NOT EXISTS pending_imports (
     filename   TEXT NOT NULL,
     content    TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS import_profiles (
+    id         INTEGER PRIMARY KEY,
+    header_key TEXT NOT NULL UNIQUE,
+    name       TEXT NOT NULL,
+    mapping    TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 """
 
@@ -317,6 +327,39 @@ def get_pending_import(import_id):
 def delete_pending_import(import_id):
     conn = get_db()
     conn.execute("DELETE FROM pending_imports WHERE id = ?", (import_id,))
+    conn.commit()
+
+
+# ----------------------------------------------------------- import profiles
+
+def header_key(header):
+    """Identify a bank's export by its header row, ignoring case and spacing."""
+    return json.dumps([" ".join(h.split()).casefold() for h in header])
+
+
+def get_import_profile(header):
+    row = get_db().execute(
+        "SELECT id, name, mapping FROM import_profiles WHERE header_key = ?",
+        (header_key(header),)).fetchone()
+    if row is None:
+        return None
+    try:
+        mapping = json.loads(row["mapping"])
+    except ValueError:
+        return None
+    if not isinstance(mapping, dict):
+        return None
+    return {"id": row["id"], "name": row["name"], "mapping": mapping}
+
+
+def save_import_profile(header, name, mapping):
+    """Store (or replace) the column mapping used for files with this header."""
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO import_profiles (header_key, name, mapping) VALUES (?, ?, ?)"
+        " ON CONFLICT (header_key) DO UPDATE SET mapping = excluded.mapping,"
+        " updated_at = datetime('now')",
+        (header_key(header), name, json.dumps(mapping, sort_keys=True)))
     conn.commit()
 
 

@@ -61,6 +61,11 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
   delimiters, `1.234,56` decimals, a "flip signs" option, UTF-8 with or without
   a BOM, and Windows-1252 are all handled. Rows that fail to parse are listed
   with their line number, and the rest import.
+- **Remembered import mappings.** After a successful import the column
+  mapping (columns, date format, decimal separator, flip signs) is saved for
+  that bank, keyed by the file's header row ignoring case and spacing. The
+  next file with the same columns opens with that mapping preselected. Untick
+  "Remember this mapping" to skip saving; saving again replaces the old one.
 - **Duplicate detection.** A row with the same date, amount and payee
   (ignoring case and spacing) as a stored transaction is skipped, so
   re-importing an overlapping statement is safe. It counts copies: if the file
