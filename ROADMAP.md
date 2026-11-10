@@ -28,7 +28,7 @@ Estimates are rough working hours for one person.
 - [x] Match types besides "contains": starts with, exact, and a regex option
       with validation
 - [x] Optional amount range on a rule (e.g. only spending over 100.00)
-- [ ] "Create rule from this transaction" link on the transaction list
+- [x] "Create rule from this transaction" link on the transaction list
 - [ ] Re-run rules over already categorised transactions, with a preview of
       what would change
 

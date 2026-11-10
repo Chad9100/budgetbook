@@ -188,6 +188,22 @@ def test_apply_rules_uses_amounts_and_csrf(client, post, category, add_tx, txs):
                                        "min_amount": "1"}).status_code == 400
 
 
+def test_make_rule_link_prefills_form_from_transaction(client, category, add_tx, txs):
+    fuel = category("Fuel")
+    add_tx(payee="  Shell   Garage <1>", category_id=fuel)
+    add_tx(payee="Cinema")
+    first, second = [t["id"] for t in txs()]
+    assert f"/rules?from_tx={first}" in client.get("/").get_data(as_text=True)
+
+    body = client.get(f"/rules?from_tx={first}").get_data(as_text=True)
+    assert 'value="Shell Garage &lt;1&gt;"' in body
+    assert f'<option value="{fuel}" selected' in body
+    body = client.get(f"/rules?from_tx={second}").get_data(as_text=True)
+    assert 'value="Cinema"' in body
+    assert "selected" not in body.split('name="category_id"')[1].split("</select>")[0]
+    assert client.get("/rules?from_tx=9999").status_code == 404
+
+
 def test_version_3_database_gains_amount_columns(tmp_path):
     import sqlite3
 

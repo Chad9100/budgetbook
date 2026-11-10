@@ -192,6 +192,14 @@ def register(app):
                       f"{amount_range_text(clean['min_cents'], clean['max_cents'])}.")
                 return redirect(url_for("rules_page"))
             status, form = 400, request.form
+        elif request.args.get("from_tx", type=int) is not None:
+            # "Create rule from this transaction": prefill the form.
+            tx = db.get_transaction(request.args.get("from_tx", type=int))
+            if tx is None:
+                abort(404)
+            form = {"match_type": "contains", "pattern": " ".join(tx["payee"].split()),
+                    "min_amount": "", "max_amount": "",
+                    "category_id": str(tx["category_id"] or "")}
         return render_template("rules.html", rules=db.list_rules(),
                                match_types=rules.MATCH_TYPES,
                                categories=db.list_categories(), errors=errors,
