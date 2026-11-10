@@ -88,6 +88,21 @@ def load_rules():
              r["min_cents"], r["max_cents"]) for r in db.list_rules()]
 
 
+def recategorise_preview():
+    """Categorised transactions whose best matching rule gives a different
+    category. Returns (row, new_category_id) pairs; transactions no rule
+    matches are left alone."""
+    rules = load_rules()
+    if not rules:
+        return []
+    out = []
+    for row in db.categorised_transactions():
+        cat = pick_category(row["payee"], rules, row["amount_cents"])
+        if cat is not None and cat != row["category_id"]:
+            out.append((row, cat))
+    return out
+
+
 def apply_to_uncategorised():
     """Categorise every uncategorised transaction a rule matches.
     Returns how many were changed."""

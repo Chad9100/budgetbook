@@ -48,5 +48,6 @@ without a category, to imports, and on demand below.</p>
   {{ csrf_field() }}
   <button type="submit">Apply rules to {{ uncategorised }} uncategorised transaction{{ '' if uncategorised == 1 else 's' }}</button>
 </form>
+<p><a href="{{ url_for('reapply_rules') }}">Preview re-running rules on categorised transactions</a></p>
 {% endif %}
 {% endblock %}

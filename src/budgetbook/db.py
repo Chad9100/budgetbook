@@ -229,6 +229,15 @@ def uncategorised_transactions():
         " WHERE category_id IS NULL").fetchall()
 
 
+def categorised_transactions():
+    """Transactions that already have a category, newest first."""
+    return get_db().execute(
+        "SELECT t.id, t.date, t.payee, t.amount_cents, t.category_id,"
+        " c.name AS category FROM transactions t"
+        " JOIN categories c ON c.id = t.category_id"
+        " ORDER BY t.date DESC, t.id DESC").fetchall()
+
+
 def set_categories(pairs):
     """``pairs``: iterable of (category_id, transaction_id)."""
     conn = get_db()

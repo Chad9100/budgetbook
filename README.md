@@ -90,6 +90,9 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
   specific rules the one with a range wins. Rules from older databases are
   upgraded in place as unlimited "contains" rules. The "Make rule" link on
   each transaction opens the rule form prefilled with its payee and category.
+  "Preview re-running rules" on the Rules page lists already categorised
+  transactions whose category the current rules would change; you untick any
+  to keep and apply the rest (transactions no rule matches are never touched).
 - **Monthly budgets** per category with spent, remaining and a usage bar.
   A budget carries forward to later months until you change it. Spending is
   the category's net total, so a refund lowers it.

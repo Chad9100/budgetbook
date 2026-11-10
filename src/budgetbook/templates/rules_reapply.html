@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Re-run rules{% endblock %}
+{% block body %}
+<h1>Re-run rules on categorised transactions</h1>
+<p class="muted">These transactions already have a category, but the current
+rules would give them a different one. Untick any you want to keep, then apply.
+Transactions that no rule matches are never listed.</p>
+{% if rows %}
+<form method="post" action="{{ url_for('reapply_rules') }}">
+  {{ csrf_field() }}
+  <table>
+  <thead><tr><th></th><th>Date</th><th>Payee</th><th>Amount</th><th>Now</th><th>Would become</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr><td><input type="checkbox" name="tx_id" value="{{ r.tx.id }}" checked></td>
+    <td>{{ r.tx.date }}</td><td>{{ r.tx.payee }}</td>
+    <td class="num {{ 'pos' if r.tx.amount_cents > 0 else 'neg' }}">{{ r.tx.amount_cents|signed_money }}</td>
+    <td>{{ r.tx.category }}</td><td>{{ r.new }}</td></tr>
+  {% endfor %}
+  </tbody>
+  </table>
+  <button type="submit">Apply selected changes</button>
+</form>
+{% else %}
+<p class="empty">Nothing to change: every categorised transaction already agrees with the rules.</p>
+{% endif %}
+<p><a href="{{ url_for('rules_page') }}">Back to rules</a></p>
+{% endblock %}

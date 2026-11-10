@@ -219,6 +219,25 @@ def register(app):
         flash(f"Categorised {n} transaction{'s' if n != 1 else ''}.")
         return redirect(url_for("rules_page"))
 
+    @app.route("/rules/reapply", methods=["GET", "POST"])
+    def reapply_rules():
+        """Preview, then apply, rule changes to already categorised
+        transactions. Only the ticked rows are changed, and each is
+        re-checked against the current rules at that moment."""
+        names = {c["id"]: c["name"] for c in db.list_categories()}
+        changes = rules.recategorise_preview()
+        if request.method == "POST":
+            chosen = set(request.form.getlist("tx_id"))
+            pairs = [(cat, row["id"]) for row, cat in changes
+                     if str(row["id"]) in chosen]
+            if pairs:
+                db.set_categories(pairs)
+            n = len(pairs)
+            flash(f"Recategorised {n} transaction{'s' if n != 1 else ''}.")
+            return redirect(url_for("rules_page"))
+        rows = [{"tx": row, "new": names[cat]} for row, cat in changes]
+        return render_template("rules_reapply.html", rows=rows)
+
     # ----------------------------------------------------------------- budgets
 
     def budget_rows(month):

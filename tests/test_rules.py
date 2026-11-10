@@ -230,3 +230,26 @@ def test_version_3_database_gains_amount_columns(tmp_path):
     conn = sqlite3.connect(path)
     assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
     conn.close()
+
+
+def test_reapply_preview_and_apply_selected(client, post, category, add_tx, txs):
+    food, fuel = category("Food"), category("Fuel")
+    add_tx(payee="Shell Garage", category_id=food)   # wrong category
+    add_tx(payee="Tesco", category_id=food)          # already right
+    add_tx(payee="Unknown", category_id=food)        # no rule matches
+    post("/rules", {"pattern": "shell", "category_id": str(fuel)})
+    post("/rules", {"pattern": "tesco", "category_id": str(food)})
+
+    body = client.get("/rules/reapply").get_data(as_text=True)
+    assert "Shell Garage" in body and "Tesco" not in body and "Unknown" not in body
+    # preview alone changes nothing
+    assert [t["category_id"] for t in txs()] == [food, food, food]
+
+    shell_id = txs()[0]["id"]
+    assert client.post("/rules/reapply", data={"tx_id": str(shell_id)}).status_code == 400
+    post("/rules/reapply", {"tx_id": []})
+    assert txs()[0]["category_id"] == food          # nothing ticked
+    r = post("/rules/reapply", {"tx_id": [str(shell_id), "9999"]}, follow_redirects=True)
+    assert "Recategorised 1 transaction." in r.get_data(as_text=True)
+    assert [t["category_id"] for t in txs()] == [fuel, food, food]
+    assert "Nothing to change" in client.get("/rules/reapply").get_data(as_text=True)

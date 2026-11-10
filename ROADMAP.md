@@ -29,7 +29,7 @@ Estimates are rough working hours for one person.
       with validation
 - [x] Optional amount range on a rule (e.g. only spending over 100.00)
 - [x] "Create rule from this transaction" link on the transaction list
-- [ ] Re-run rules over already categorised transactions, with a preview of
+- [x] Re-run rules over already categorised transactions, with a preview of
       what would change
 
 ## v0.4: accounts and transfers (about 4 h)
