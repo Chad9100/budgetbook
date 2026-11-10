@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Report {{ month }}{% endblock %}
+{% macro bar(pct, cls) -%}
+<svg class="bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><rect width="{{ pct }}" height="12" class="{{ cls }}"/></svg>
+{%- endmacro %}
+{% block body %}
+<h1>Report &middot; {{ month|month_label }}</h1>
+{% include "_monthnav.html" %}
+<section class="cards">
+  <div><span class="muted">Income</span><strong class="pos">{{ income|money }}</strong></div>
+  <div><span class="muted">Expenses</span><strong class="neg">{{ expenses|money }}</strong></div>
+  <div><span class="muted">Net</span><strong class="{{ 'pos' if net >= 0 else 'neg' }}">{{ net|signed_money }}</strong></div>
+</section>
+
+<h2>Income vs expenses</h2>
+<table class="bars">
+{% for b in versus %}
+<tr><th>{{ b.label }}</th><td class="barcell">{{ bar(b.pct, 'income' if loop.first else 'expense') }}</td><td class="num">{{ b.cents|money }}</td></tr>
+{% endfor %}
+</table>
+
+<h2>Spending by category</h2>
+{% if spending %}
+<table class="bars">
+<thead><tr><th>Category</th><th></th><th class="num">Spent</th><th class="num">Budget</th></tr></thead>
+{% for b in spending %}
+<tr><th>{{ b.label }}</th><td class="barcell">{{ bar(b.pct, 'expense') }}</td><td class="num">{{ b.cents|money }}</td>
+  <td class="num {% if b.budget is not none and b.cents > b.budget %}neg{% endif %}">{% if b.budget is not none %}{{ b.budget|money }}{% else %}<span class="muted">&ndash;</span>{% endif %}</td></tr>
+{% endfor %}
+</table>
+{% else %}<p class="empty">No spending this month.</p>{% endif %}
+
+<h2>Income by category</h2>
+{% if income_bars %}
+<table class="bars">
+{% for b in income_bars %}
+<tr><th>{{ b.label }}</th><td class="barcell">{{ bar(b.pct, 'income') }}</td><td class="num">{{ b.cents|money }}</td></tr>
+{% endfor %}
+</table>
+{% else %}<p class="empty">No income this month.</p>{% endif %}
+
+<h2>Last {{ trend|length }} months</h2>
+<table class="bars trend">
+<thead><tr><th>Month</th><th></th><th class="num">Income</th><th class="num">Expenses</th></tr></thead>
+{% for t in trend %}
+<tr><th><a href="{{ url_for('report', month=t.month) }}">{{ t.month }}</a></th>
+  <td class="barcell">{{ bar(t.income_pct, 'income') }}{{ bar(t.expenses_pct, 'expense') }}</td>
+  <td class="num">{{ t.income|money }}</td><td class="num">{{ t.expenses|money }}</td></tr>
+{% endfor %}
+</table>
+<p class="muted">Income and expenses are split by sign, so a refund counts as income here,
+while category spending and budgets use each category's net total.</p>
+{% endblock %}

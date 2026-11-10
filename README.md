@@ -1,0 +1,99 @@
+# budgetbook
+
+A small personal-finance web app that runs on your own computer. Record
+transactions by hand or import your bank's CSV export, let simple rules
+categorise them, set a monthly budget per category, and see where the money
+went on a monthly report.
+
+**Who it is for:** people who want a private, no-account budget tool whose data
+is a single SQLite file they own, without a spreadsheet full of formulas.
+
+**Built with:** Python 3.10+, Flask (the only runtime dependency) and the
+standard-library `sqlite3`. Pages are plain server-rendered HTML; the charts
+are inline SVG, with no JavaScript framework. Tests use pytest.
+
+## Install
+
+```sh
+git clone https://github.com/Chad9100/budgetbook.git
+cd budgetbook
+python -m pip install .
+```
+
+That puts a `budgetbook` command on your PATH. `python -m budgetbook` works too.
+
+## Usage
+
+```sh
+budgetbook init                 # create ./budgetbook.db with starter categories
+budgetbook run                  # serve on http://127.0.0.1:5000
+```
+
+Then open <http://127.0.0.1:5000> in a browser.
+
+| Command | Options |
+| --- | --- |
+| `budgetbook init` | `--db PATH`, `--no-categories` (start with no categories) |
+| `budgetbook run` | `--db PATH`, `--host` (default `127.0.0.1`), `--port` (default `5000`), `--debug` |
+
+The database path defaults to `$BUDGETBOOK_DB`, or `budgetbook.db` in the
+current folder. `run` creates the database if it does not exist yet (without
+starter categories). budgetbook has no login, so it listens on localhost only
+unless you pass `--host`, and then it prints a warning.
+
+A random session key is stored next to the database as `<db>.secret` (set
+`BUDGETBOOK_SECRET` to use your own). Back up the `.db` file to back up your data.
+
+To try it with sample data, import [examples/bank-statement.csv](examples/bank-statement.csv).
+
+## Features
+
+- **Transactions:** add, edit and delete transactions with a date, amount,
+  payee, category and note. Filter by month, category (or "uncategorised")
+  and a search over payee and note. Export the list (or one month) as CSV.
+- **Money as integer cents.** Amounts are stored as integer cents (negative
+  means money out), so totals are exact. The forms accept `1,234.56`, `$12`,
+  `(12.00)` and similar. An ambiguous value such as `12,50` is rejected
+  rather than guessed.
+- **Bank CSV import in two steps.** Upload the file, then map its columns: date
+  (with the format detected from the data), one signed amount column or
+  separate debit/credit columns, payee and an optional note. Comma or semicolon
+  delimiters, `1.234,56` decimals, a "flip signs" option, UTF-8 with or without
+  a BOM, and Windows-1252 are all handled. Rows that fail to parse are listed
+  with their line number, and the rest import.
+- **Duplicate detection.** A row with the same date, amount and payee
+  (ignoring case and spacing) as a stored transaction is skipped, so
+  re-importing an overlapping statement is safe. It counts copies: if the file
+  has two identical coffees on one day and only one is stored, one new
+  transaction is imported. A checkbox imports duplicates anyway.
+- **Rules:** "payee contains X → category Y", case-insensitive. The longest
+  matching pattern wins, and ties go to the rule created first. Rules apply to
+  imports, to transactions saved without a category, and to every
+  uncategorised transaction with one button.
+- **Monthly budgets** per category with spent, remaining and a usage bar.
+  A budget carries forward to later months until you change it. Spending is
+  the category's net total, so a refund lowers it.
+- **Monthly report:** income, expenses and net; income-vs-expenses bars;
+  spending per category next to its budget; income per category; and a
+  six-month income/expenses trend, all drawn as inline SVG.
+- **Safe by default:** every form that changes data carries a per-session CSRF
+  token, and the session cookie is `SameSite=Lax` and `HttpOnly`. All output
+  is escaped by Jinja autoescaping. Exported CSV cells that start with `=`,
+  `+`, `-` or `@` are prefixed so spreadsheet apps do not run them as formulas.
+
+## Development
+
+```sh
+python -m venv .venv
+.venv/Scripts/python -m pip install -e ".[dev]"   # .venv/bin/python on Linux/macOS
+.venv/Scripts/pytest -q
+```
+
+Tests use Flask's test client against a temporary database. CI runs them on
+Ubuntu and Windows with Python 3.10, 3.12 and 3.13.
+
+See [ROADMAP.md](ROADMAP.md) for planned work.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}budgetbook{% endblock %} · budgetbook</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <a class="brand" href="{{ url_for('index') }}">budgetbook</a>
+  <nav>
+    <a href="{{ url_for('index') }}">Transactions</a>
+    <a href="{{ url_for('add_transaction') }}">Add</a>
+    <a href="{{ url_for('import_upload') }}">Import</a>
+    <a href="{{ url_for('budgets') }}">Budgets</a>
+    <a href="{{ url_for('report') }}">Report</a>
+    <a href="{{ url_for('rules_page') }}">Rules</a>
+    <a href="{{ url_for('categories') }}">Categories</a>
+  </nav>
+</header>
+<main>
+{% for m in get_flashed_messages() %}<p class="flash">{{ m }}</p>{% endfor %}
+{% if errors %}<ul class="errors">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+{% block body %}{% endblock %}
+</main>
+</body>
+</html>

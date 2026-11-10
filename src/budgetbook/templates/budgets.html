@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Budgets {{ month }}{% endblock %}
+{% block body %}
+<h1>Budgets &middot; {{ month|month_label }}</h1>
+{% include "_monthnav.html" %}
+<p class="muted">A budget carries forward to later months until you change it.
+Clear a field to remove the amount set for this month.</p>
+{% if rows %}
+<form method="post" action="{{ url_for('budgets') }}">
+  {{ csrf_field() }}
+  <input type="hidden" name="month" value="{{ month }}">
+  <table>
+  <thead><tr><th>Category</th><th class="num">Budget</th><th class="num">Spent</th><th class="num">Remaining</th><th>Used</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  {% set field = 'budget_' ~ r.id %}
+  <tr>
+    <td>{{ r.name }}</td>
+    <td class="num">
+      <input type="text" name="{{ field }}" inputmode="decimal" size="9" aria-label="Budget for {{ r.name }}"
+        value="{% if form %}{{ form.get(field, '') }}{% elif r.budget is not none and r.set_in == month %}{{ r.budget|plain_money }}{% endif %}"
+        placeholder="{% if r.budget is not none and r.set_in != month %}{{ r.budget|plain_money }}{% endif %}">
+      {% if r.budget is not none and r.set_in != month %}<br><small class="muted">carried from {{ r.set_in }}</small>{% endif %}
+    </td>
+    <td class="num">{{ r.spent|money }}</td>
+    <td class="num {% if r.remaining is not none and r.remaining < 0 %}neg{% endif %}">{% if r.remaining is not none %}{{ r.remaining|money }}{% else %}<span class="muted">&ndash;</span>{% endif %}</td>
+    <td>{% if r.budget is not none %}<svg class="meter" viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label="{{ r.pct }}% used"><rect width="100" height="10" class="track"/><rect width="{{ r.pct }}" height="10" class="{{ 'over' if r.remaining < 0 else 'ok' }}"/></svg>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><th>Total budgeted</th><th class="num">{{ totals.budget|money }}</th><th class="num">{{ totals.spent|money }}</th><th class="num {% if totals.remaining < 0 %}neg{% endif %}">{{ totals.remaining|money }}</th><th></th></tr></tfoot>
+  </table>
+  {% if uncategorised %}<p class="muted">Uncategorised spending this month: {{ uncategorised|money }}.</p>{% endif %}
+  <p><button type="submit">Save budgets</button></p>
+</form>
+{% else %}
+<p class="empty">Create some <a href="{{ url_for('categories') }}">categories</a> first.</p>
+{% endif %}
+{% endblock %}

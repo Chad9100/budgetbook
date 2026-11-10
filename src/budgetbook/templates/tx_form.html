@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if tx.id else 'Add' }} transaction{% endblock %}
+{% block body %}
+<h1>{{ 'Edit' if tx.id else 'Add' }} transaction</h1>
+<form method="post" class="stacked">
+  {{ csrf_field() }}
+  <label>Date <input type="date" name="date" value="{{ tx.date }}" required></label>
+  <fieldset><legend>Type</legend>
+    <label><input type="radio" name="kind" value="expense" {% if tx.kind != 'income' %}checked{% endif %}> Expense</label>
+    <label><input type="radio" name="kind" value="income" {% if tx.kind == 'income' %}checked{% endif %}> Income</label>
+  </fieldset>
+  <label>Amount <input type="text" name="amount" value="{{ tx.amount }}" inputmode="decimal" placeholder="12.34" required></label>
+  <label>Payee <input type="text" name="payee" value="{{ tx.payee }}" maxlength="200" required></label>
+  <label>Category
+    <select name="category_id">
+      <option value="">(none / let rules decide)</option>
+      {% for c in categories %}<option value="{{ c.id }}" {% if tx.category_id|string == c.id|string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Note <textarea name="note" rows="2" maxlength="1000">{{ tx.note }}</textarea></label>
+  <p><button type="submit">Save</button> <a href="{{ url_for('index') }}">Cancel</a></p>
+</form>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Import{% endblock %}
+{% block body %}
+<h1>Import a bank CSV</h1>
+<p>Upload the CSV export from your bank. The first row must be a header.
+Next you choose which column holds the date, amount and payee; nothing is
+saved until you confirm.</p>
+<form method="post" enctype="multipart/form-data" action="{{ url_for('import_upload') }}" class="stacked">
+  {{ csrf_field() }}
+  <label>CSV file <input type="file" name="file" accept=".csv,text/csv,text/plain" required></label>
+  <p><button type="submit">Upload</button></p>
+</form>
+{% endblock %}

@@ -1,0 +1,5 @@
+<p class="monthnav">
+  <a href="{{ url_for(request.endpoint, month=prev_month) }}">&larr; {{ prev_month|month_label }}</a>
+  <strong>{{ month|month_label }}</strong>
+  <a href="{{ url_for(request.endpoint, month=next_month) }}">{{ next_month|month_label }} &rarr;</a>
+</p>

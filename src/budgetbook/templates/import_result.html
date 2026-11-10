@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Import finished{% endblock %}
+{% block body %}
+<h1>Import finished</h1>
+<p><strong>{{ filename }}</strong>: imported {{ imported|length }} transaction{{ '' if imported|length == 1 else 's' }}
+({{ categorised }} categorised by rules), skipped {{ duplicates|length }} duplicate{{ '' if duplicates|length == 1 else 's' }},
+{{ errors|length }} row{{ '' if errors|length == 1 else 's' }} with errors.</p>
+<p><a href="{{ url_for('index') }}">View transactions</a> &middot; <a href="{{ url_for('import_upload') }}">Import another file</a></p>
+
+{% if duplicates %}
+<h2>Skipped as duplicates</h2>
+<p class="muted">Same date, amount and payee as a transaction already stored.</p>
+<table>
+<thead><tr><th>Line</th><th>Date</th><th>Payee</th><th class="num">Amount</th></tr></thead>
+<tbody>
+{% for t in duplicates %}<tr><td>{{ t.line }}</td><td>{{ t.date }}</td><td>{{ t.payee }}</td><td class="num">{{ t.amount_cents|signed_money }}</td></tr>{% endfor %}
+</tbody>
+</table>
+{% endif %}
+
+{% if errors %}
+<h2>Rows not imported</h2>
+<ul class="errors">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+{% endif %}
+{% endblock %}

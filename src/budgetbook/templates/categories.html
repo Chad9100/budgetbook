@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Categories{% endblock %}
+{% block body %}
+<h1>Categories</h1>
+<form method="post" action="{{ url_for('categories') }}" class="inline">
+  {{ csrf_field() }}
+  <label>New category <input type="text" name="name" maxlength="60" required></label>
+  <button type="submit">Add</button>
+</form>
+{% if categories %}
+<table>
+<thead><tr><th>Name</th><th class="num">Transactions</th><th class="num">Rules</th><th></th></tr></thead>
+<tbody>
+{% for c in categories %}
+<tr>
+  <td>
+    <form method="post" action="{{ url_for('rename_category', cat_id=c.id) }}" class="inline">
+      {{ csrf_field() }}
+      <input type="text" name="name" value="{{ c.name }}" maxlength="60" required aria-label="Name">
+      <button type="submit" class="link">Rename</button>
+    </form>
+  </td>
+  <td class="num">{{ usage[c.id].transactions }}</td>
+  <td class="num">{{ usage[c.id].rules }}</td>
+  <td class="actions">
+    <form method="post" action="{{ url_for('delete_category', cat_id=c.id) }}" onsubmit="return confirm('Delete this category? Its transactions become uncategorised and its rules and budgets are removed.')">
+      {{ csrf_field() }}<button type="submit" class="link">Delete</button>
+    </form>
+  </td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p class="empty">No categories yet. Add one above (<code>budgetbook init</code> adds a starter set).</p>
+{% endif %}
+{% endblock %}

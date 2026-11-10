@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Rules{% endblock %}
+{% block body %}
+<h1>Auto-categorisation rules</h1>
+<p class="muted">A rule says <em>payee contains X &rarr; category Y</em> (case-insensitive).
+When several rules match, the longest pattern wins. Rules apply to new transactions
+without a category, to imports, and on demand below.</p>
+{% if categories %}
+<form method="post" action="{{ url_for('rules_page') }}" class="inline">
+  {{ csrf_field() }}
+  <label>Payee contains <input type="text" name="pattern" value="{{ form.pattern }}" maxlength="100" required></label>
+  <label>&rarr; category
+    <select name="category_id" required>
+      <option value="">choose&hellip;</option>
+      {% for c in categories %}<option value="{{ c.id }}" {% if form.category_id == c.id|string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit">Add rule</button>
+</form>
+{% else %}
+<p class="empty">Create a <a href="{{ url_for('categories') }}">category</a> first.</p>
+{% endif %}
+{% if rules %}
+<table>
+<thead><tr><th>Payee contains</th><th>Category</th><th></th></tr></thead>
+<tbody>
+{% for r in rules %}
+<tr><td><code>{{ r.pattern }}</code></td><td>{{ r.category }}</td>
+  <td class="actions">
+    <form method="post" action="{{ url_for('delete_rule', rule_id=r.id) }}">
+      {{ csrf_field() }}<button type="submit" class="link">Delete</button>
+    </form>
+  </td></tr>
+{% endfor %}
+</tbody>
+</table>
+<form method="post" action="{{ url_for('apply_rules') }}">
+  {{ csrf_field() }}
+  <button type="submit">Apply rules to {{ uncategorised }} uncategorised transaction{{ '' if uncategorised == 1 else 's' }}</button>
+</form>
+{% endif %}
+{% endblock %}
