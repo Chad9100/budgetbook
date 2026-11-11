@@ -29,7 +29,7 @@
   <a href="{{ url_for('index', month=next_month, q=q or None, category=category or None) }}">{{ next_month|month_label }} &rarr;</a>
 </p>
 {% endif %}
-<p class="summary">{{ txs|length }} transaction{{ '' if txs|length == 1 else 's' }} &middot;
+<p class="summary">{{ total }} transaction{{ '' if total == 1 else 's' }} &middot;
   in <span class="pos">{{ income|money }}</span> &middot;
   out <span class="neg">{{ spent|money }}</span> &middot;
   <a href="{{ url_for('export_csv', month=month or None) }}">Export CSV</a></p>
@@ -56,6 +56,13 @@
 {% endfor %}
 </tbody>
 </table>
+{% if pages > 1 %}
+<p class="pager">
+  {% if page > 1 %}<a href="{{ url_for('index', month=month or None, q=q or None, category=category or None, account=account or None, page=page - 1) }}">&larr; Newer</a>{% endif %}
+  Showing {{ first }}&ndash;{{ last }} of {{ total }} (page {{ page }} of {{ pages }})
+  {% if page < pages %}<a href="{{ url_for('index', month=month or None, q=q or None, category=category or None, account=account or None, page=page + 1) }}">Older &rarr;</a>{% endif %}
+</p>
+{% endif %}
 {% else %}
 <p class="empty">No transactions here yet. <a href="{{ url_for('add_transaction') }}">Add one</a> or <a href="{{ url_for('import_upload') }}">import a bank CSV</a>.</p>
 {% endif %}

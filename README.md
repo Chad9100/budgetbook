@@ -55,6 +55,11 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
 - **Transactions:** add, edit and delete transactions with a date, amount,
   payee, category and note. Filter by month, category (or "uncategorised")
   and a search over payee and note. Export the list (or one month) as CSV.
+  The list shows 50 transactions per page with Newer/Older links that keep
+  your filters; the totals line always covers every match, not just the
+  page. With 120 transactions, real output of the pager line:
+  `Showing 1-50 of 120 (page 1 of 3)`, then `Showing 101-120 of 120 (page 3
+  of 3)` on the last page. An out-of-range page number is clamped.
 - **Accounts:** add accounts (current, savings, credit card, cash) with an
   opening balance; the Accounts page shows each balance (opening plus its
   transactions). Pick an account on a transaction and filter the list by

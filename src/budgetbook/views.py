@@ -4,8 +4,8 @@ import io
 import os
 from datetime import date
 
-from flask import (Response, abort, flash, redirect, render_template, request,
-                   url_for)
+from flask import (Response, abort, current_app, flash, redirect,
+                   render_template, request, url_for)
 
 from . import db, rules
 from .csvimport import (DATE_FORMATS, KNOWN_FORMATS, decode, dup_key, guess_mapping,
@@ -65,8 +65,17 @@ def register(app):
         txs = db.list_transactions(month or None, q, category, account)
         income = sum(t["amount_cents"] for t in txs if t["amount_cents"] > 0)
         spent = -sum(t["amount_cents"] for t in txs if t["amount_cents"] < 0)
+        # Totals above cover every match; only the table is paged.
+        size = current_app.config.get("PAGE_SIZE", 50)
+        pages = max(1, -(-len(txs) // size))
+        page = request.args.get("page", "")
+        page = min(max(int(page), 1), pages) if page.isdigit() else 1
+        total = len(txs)
+        txs = txs[(page - 1) * size:page * size]
         return render_template(
-            "transactions.html", txs=txs, month=month, q=q, category=category,
+            "transactions.html", txs=txs, total=total, page=page, pages=pages,
+            first=(page - 1) * size + 1 if total else 0,
+            last=(page - 1) * size + len(txs), month=month, q=q, category=category,
             account=account, accounts=db.list_accounts(),
             categories=db.list_categories(), income=income, spent=spent,
             this_month=current_month(),
