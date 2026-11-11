@@ -5,6 +5,7 @@
 {%- endmacro %}
 {% block body %}
 <h1>Report &middot; {{ month|month_label }}</h1>
+<p><a href="{{ url_for('year_report', year=month[:4]) }}">Year report for {{ month[:4] }}</a></p>
 {% include "_monthnav.html" %}
 <section class="cards">
   <div><span class="muted">Income</span><strong class="pos">{{ income|money }}</strong></div>

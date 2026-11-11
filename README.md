@@ -164,6 +164,18 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
 - **Monthly report:** income, expenses and net; income-vs-expenses bars;
   spending per category next to its budget; income per category; and a
   six-month income/expenses trend, all drawn as inline SVG.
+- **Year report** (`/report/year?year=2026`, linked from the monthly report):
+  a Jan-Dec table of each category's net total per month with a total row and
+  column, split into spending and income categories (a category whose year
+  total is positive counts as income). Real rows (first three months and the
+  year column) for a small demo database:
+
+  ```text
+  Category | Jan | Feb | Mar | ... | Year
+  Groceries | 50.00 | - | 25.50 | ... | 75.50
+  Category | Jan | Feb | Mar | ... | Year
+  Salary | 1,000.00 | - | 1,000.00 | ... | 2,000.00
+  ```
 - **Safe by default:** every form that changes data carries a per-session CSRF
   token, and the session cookie is `SameSite=Lax` and `HttpOnly`. All output
   is escaped by Jinja autoescaping. Exported CSV cells that start with `=`,

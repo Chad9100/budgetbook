@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Year report {{ year }}{% endblock %}
+{% macro grid(rows, totals, label) %}
+<div class="scroll">
+<table class="preview yeartable">
+<thead><tr><th>Category</th>{% for m in month_names %}<th class="num">{{ m }}</th>{% endfor %}<th class="num">{{ label }}</th></tr></thead>
+{% for e in rows %}
+<tr><th>{{ e.name }}</th>{% for c in e.months %}<td class="num">{% if c %}{{ c|money }}{% else %}<span class="muted">&ndash;</span>{% endif %}</td>{% endfor %}<td class="num"><strong>{{ e.total|money }}</strong></td></tr>
+{% endfor %}
+<tr class="total"><th>Total</th>{% for c in totals %}<td class="num">{{ c|money }}</td>{% endfor %}<td class="num"><strong>{{ totals|sum|money }}</strong></td></tr>
+</table>
+</div>
+{% endmacro %}
+{% block body %}
+<h1>Year report &middot; {{ year }}</h1>
+<p class="monthnav">
+  <a href="{{ url_for('year_report', year=prev_year) }}">&larr; {{ prev_year }}</a>
+  <strong>{{ year }}</strong>
+  <a href="{{ url_for('year_report', year=next_year) }}">{{ next_year }} &rarr;</a>
+</p>
+<p><a href="{{ url_for('report', month='%04d-01' % year) }}">Monthly report</a></p>
+
+<h2>Spending by category</h2>
+{% if spending %}{{ grid(spending, spending_totals, 'Year') }}
+{% else %}<p class="empty">No spending in {{ year }}.</p>{% endif %}
+
+<h2>Income by category</h2>
+{% if income %}{{ grid(income, income_totals, 'Year') }}
+{% else %}<p class="empty">No income in {{ year }}.</p>{% endif %}
+<p class="muted">Each category shows its net total per month, so a refund lowers
+that category's spending. A category whose year total is positive is listed under income.</p>
+{% endblock %}

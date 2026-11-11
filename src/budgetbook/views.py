@@ -432,6 +432,38 @@ def register(app):
             trend=trend, prev_month=shift_month(month, -1),
             next_month=shift_month(month, 1))
 
+    @app.route("/report/year")
+    def year_report():
+        raw = request.args.get("year", "")
+        year = int(raw) if raw.isdigit() and 1900 <= int(raw) <= 9999 else date.today().year
+        cats = {}
+        for r in db.year_category_months(year):
+            entry = cats.setdefault(r["category_id"], {
+                "name": r["category"] or "Uncategorised", "months": [0] * 12})
+            entry["months"][r["month"] - 1] = r["net_cents"]
+        spending, income = [], []
+        for entry in cats.values():
+            total = sum(entry["months"])
+            if total < 0:
+                entry["months"] = [-c for c in entry["months"]]
+                entry["total"] = -total
+                spending.append(entry)
+            elif total > 0:
+                entry["total"] = total
+                income.append(entry)
+        spending.sort(key=lambda e: (-e["total"], e["name"].casefold()))
+        income.sort(key=lambda e: (-e["total"], e["name"].casefold()))
+
+        def column_totals(rows):
+            return [sum(e["months"][i] for e in rows) for i in range(12)]
+
+        return render_template(
+            "year_report.html", year=year, spending=spending, income=income,
+            spending_totals=column_totals(spending), income_totals=column_totals(income),
+            month_names=["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+            prev_year=year - 1, next_year=year + 1)
+
     # ------------------------------------------------------------------ import
 
     @app.route("/import", methods=["GET", "POST"])

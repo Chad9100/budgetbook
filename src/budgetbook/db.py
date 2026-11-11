@@ -464,6 +464,19 @@ def month_totals(month):
     return row[0], row[1]
 
 
+def year_category_months(year):
+    """Rows of (category_id, category, month, net_cents) for a year
+    (``year`` is an int); ``category_id`` is None for uncategorised."""
+    return get_db().execute(
+        "SELECT t.category_id, c.name AS category,"
+        "       CAST(substr(t.date, 6, 2) AS INTEGER) AS month,"
+        "       SUM(t.amount_cents) AS net_cents"
+        " FROM transactions t LEFT JOIN categories c ON c.id = t.category_id"
+        " WHERE t.date >= ? AND t.date < ?"
+        " GROUP BY t.category_id, month",
+        ("%04d-01-01" % year, "%04d-01-01" % (year + 1))).fetchall()
+
+
 # ----------------------------------------------------------- pending imports
 
 def save_pending_import(filename, content):
