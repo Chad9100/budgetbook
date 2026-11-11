@@ -72,8 +72,10 @@ def register(app):
         page = min(max(int(page), 1), pages) if page.isdigit() else 1
         total = len(txs)
         txs = txs[(page - 1) * size:page * size]
+        balances = db.running_balances(int(account)) if account.isdigit() else {}
         return render_template(
             "transactions.html", txs=txs, total=total, page=page, pages=pages,
+            balances=balances,
             first=(page - 1) * size + 1 if total else 0,
             last=(page - 1) * size + len(txs), month=month, q=q, category=category,
             account=account, accounts=db.list_accounts(),
@@ -415,7 +417,8 @@ def register(app):
             "import_map.html", pending=pending, header=header,
             preview=rows[:PREVIEW_ROWS], total=len(rows), sel=sel,
             errors=list(errors), date_formats=DATE_FORMATS,
-            profile=profile, parsed_preview=parsed_preview), status
+            profile=profile, parsed_preview=parsed_preview,
+            accounts=db.list_accounts()), status
 
     def ncols_of(header, rows):
         return max([len(header)] + [len(c) for _, c in rows])
@@ -490,6 +493,13 @@ def register(app):
         pending, header, rows = load_pending(import_id)
         ncols = ncols_of(header, rows)
         mapping, errors = mapping_from_form(request.form, ncols)
+        account_id = None
+        raw_account = request.form.get("account_id", "")
+        if raw_account:
+            if raw_account.isdigit() and db.get_account(int(raw_account)):
+                account_id = int(raw_account)
+            else:
+                errors.append("Choose an existing account.")
         if errors:
             return map_page(pending, header, rows, request.form, errors, 400)
         parsed, row_errors = parse_rows(rows, mapping)
@@ -511,6 +521,7 @@ def register(app):
         categorised = 0
         for tx in new:
             categorised += tx["category_id"] is not None
+            tx["account_id"] = account_id
             db.insert_transaction(tx, commit=False)
         db.get_db().commit()
         if request.form.get("remember"):

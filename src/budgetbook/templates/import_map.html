@@ -35,6 +35,12 @@ and leave out {{ pp.errors|length }} row{{ '' if pp.errors|length == 1 else 's' 
 <form method="post" action="{{ url_for('import_commit', import_id=pending.id) }}" class="stacked">
   {{ csrf_field() }}
   {% include "_mapping_fields.html" %}
+  {% if accounts %}<label>Account for these transactions
+    <select name="account_id">
+      <option value="">No account</option>
+      {% for a in accounts %}<option value="{{ a.id }}" {% if sel.get('account_id') == a.id|string %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+    </select>
+  </label>{% endif %}
   <label><input type="checkbox" name="allow_duplicates" value="1" {% if sel.get('allow_duplicates') %}checked{% endif %}> Import rows that look like duplicates anyway</label>
   <label><input type="checkbox" name="remember" value="1" {% if sel.get('remember') %}checked{% endif %}> Remember this mapping for files with the same columns</label>
   <p><button type="submit" name="action" value="import">Import</button>

@@ -212,6 +212,23 @@ def get_account(account_id):
         (account_id,)).fetchone()
 
 
+def running_balances(account_id):
+    """Map transaction id -> the account's balance just after that
+    transaction (opening balance plus everything up to and including it,
+    in date then id order). Empty if the account does not exist."""
+    acc = get_account(account_id)
+    if acc is None:
+        return {}
+    rows = get_db().execute(
+        "SELECT id, amount_cents FROM transactions WHERE account_id = ?"
+        " ORDER BY date, id", (account_id,)).fetchall()
+    balance, out = acc["opening_cents"], {}
+    for r in rows:
+        balance += r["amount_cents"]
+        out[r["id"]] = balance
+    return out
+
+
 def add_account(name, kind="current", opening_cents=0):
     conn = get_db()
     try:

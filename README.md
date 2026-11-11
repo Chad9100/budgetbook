@@ -64,7 +64,17 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
   opening balance; the Accounts page shows each balance (opening plus its
   transactions). Pick an account on a transaction and filter the list by
   account. Older databases upgrade in place and keep their transactions with
-  no account. Transfers and choosing an account on import come later.
+  no account. Transfers come later. When you have accounts, the import
+  mapping step has an "Account for these transactions" menu, and every
+  imported row is stored on the account you pick (default: no account).
+  Filtering the transaction list by one account adds a Balance column: the
+  balance right after each transaction (opening balance plus all earlier
+  transactions in date order), shown even when other filters hide rows. With
+  a 1000.00 opening balance and the sample statement imported into it, real
+  output for the newest rows (date, payee, amount, balance):
+  `2026-10-28 THE CORNER CAFE -4.80 2,643.97`, then
+  `2026-10-26 AMAZON MARKETPLACE +9.99 2,648.77`, then
+  `2026-10-24 AMAZON MARKETPLACE -23.99 2,638.78`.
 - **Money as integer cents.** Amounts are stored as integer cents (negative
   means money out), so totals are exact. The forms accept `1,234.56`, `$12`,
   `(12.00)` and similar. An ambiguous value such as `12,50` is rejected

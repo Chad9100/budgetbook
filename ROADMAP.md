@@ -42,7 +42,7 @@ Part 1 (about 1 h): accounts and the account on a transaction.
 
 Part 2:
 
-- [ ] Choose the account when importing; running balance per account
+- [x] Choose the account when importing; running balance per account
 - [ ] Mark a pair of transactions as a transfer so it is left out of income
       and expenses
 
