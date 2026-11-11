@@ -13,8 +13,8 @@ from .csvimport import (DATE_FORMATS, KNOWN_FORMATS, decode, dup_key, guess_mapp
                         split_duplicates)
 from .forms import (MAX_NAME, validate_account, validate_name, validate_rule,
                     validate_transaction)
-from .money import (amount_range_text, cents_to_input, current_month, parse_amount, shift_month,
-                    valid_month)
+from .money import (amount_range_text, cents_to_input, current_month, month_range,
+                    parse_amount, shift_month, valid_month)
 
 PREVIEW_ROWS = 5
 PARSED_PREVIEW_ROWS = 10
@@ -463,6 +463,31 @@ def register(app):
             month_names=["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
             prev_year=year - 1, next_year=year + 1)
+
+    @app.route("/report/averages")
+    def averages():
+        month = month_arg()
+        windows = (3, 6, 12)
+        end = month_range(month)[0]  # complete months before the chosen month
+        cats = {}
+        for n in windows:
+            start = month_range(shift_month(month, -n))[0]
+            for r in db.category_net_between(start, end):
+                entry = cats.setdefault(r["category_id"], {
+                    "name": r["category"] or "Uncategorised", "avg": {}})
+                # net spending per month, rounded to the nearest cent;
+                # months without transactions count as zero
+                entry["avg"][n] = round(-r["net_cents"] / n)
+        rows = []
+        for entry in cats.values():
+            if any(entry["avg"].get(n, 0) > 0 for n in windows):
+                rows.append({"name": entry["name"],
+                             "avg": [max(entry["avg"].get(n, 0), 0) for n in windows]})
+        rows.sort(key=lambda e: (-e["avg"][1], e["name"].casefold()))
+        return render_template(
+            "averages.html", month=month, rows=rows, windows=windows,
+            totals=[sum(e["avg"][i] for e in rows) for i in range(len(windows))],
+            prev_month=shift_month(month, -1), next_month=shift_month(month, 1))
 
     # ------------------------------------------------------------------ import
 

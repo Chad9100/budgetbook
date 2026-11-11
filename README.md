@@ -176,6 +176,19 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
   Category | Jan | Feb | Mar | ... | Year
   Salary | 1,000.00 | - | 1,000.00 | ... | 2,000.00
   ```
+- **Average monthly spending** (`/report/averages?month=2026-10`, linked from
+  the year report): each category's net spending averaged over the last 3, 6
+  and 12 complete months before the chosen month (default: the current one,
+  which is left out). Months without spending count as zero, refunds lower
+  the figure, and income-only categories are not listed. Real output for a
+  small demo database:
+
+  ```text
+  Category | Last 3 months | Last 6 months | Last 12 months
+  Rent | 533.33 | 266.67 | 133.33
+  Groceries | 30.00 | 45.00 | 52.50
+  Total | 563.33 | 311.67 | 185.83
+  ```
 - **Safe by default:** every form that changes data carries a per-session CSRF
   token, and the session cookie is `SameSite=Lax` and `HttpOnly`. All output
   is escaped by Jinja autoescaping. Exported CSV cells that start with `=`,

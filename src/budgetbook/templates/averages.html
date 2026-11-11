@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Average spending{% endblock %}
+{% block body %}
+<h1>Average monthly spending</h1>
+{% include "_monthnav.html" %}
+<p class="muted">Averages over the complete months before {{ month|month_label }}.
+Months without spending count as zero.</p>
+<p><a href="{{ url_for('report', month=month) }}">Monthly report</a></p>
+{% if rows %}
+<table class="preview">
+<thead><tr><th>Category</th>{% for n in windows %}<th class="num">Last {{ n }} months</th>{% endfor %}</tr></thead>
+{% for e in rows %}
+<tr><th>{{ e.name }}</th>{% for a in e.avg %}<td class="num">{% if a %}{{ a|money }}{% else %}<span class="muted">&ndash;</span>{% endif %}</td>{% endfor %}</tr>
+{% endfor %}
+<tr class="total"><th>Total</th>{% for t in totals %}<td class="num">{{ t|money }}</td>{% endfor %}</tr>
+</table>
+<p class="muted">Each category's net spending, so a refund lowers it; income-only categories are left out.</p>
+{% else %}<p class="empty">No spending in the 12 months before {{ month|month_label }}.</p>{% endif %}
+{% endblock %}

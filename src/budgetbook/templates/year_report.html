@@ -18,7 +18,8 @@
   <strong>{{ year }}</strong>
   <a href="{{ url_for('year_report', year=next_year) }}">{{ next_year }} &rarr;</a>
 </p>
-<p><a href="{{ url_for('report', month='%04d-01' % year) }}">Monthly report</a></p>
+<p><a href="{{ url_for('report', month='%04d-01' % year) }}">Monthly report</a>
+&middot; <a href="{{ url_for('averages') }}">Average monthly spending</a></p>
 
 <h2>Spending by category</h2>
 {% if spending %}{{ grid(spending, spending_totals, 'Year') }}

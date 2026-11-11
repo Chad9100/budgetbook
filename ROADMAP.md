@@ -55,7 +55,7 @@ Part 2:
 ## v0.6: yearly view and trends (about 3 h)
 
 - [x] Year report: month-by-month table per category with totals
-- [ ] Average monthly spend per category over the last 3, 6 and 12 months
+- [x] Average monthly spend per category over the last 3, 6 and 12 months
 - [ ] Budget suggestions based on those averages
 
 ## v0.7: backups and data portability (about 2 h)

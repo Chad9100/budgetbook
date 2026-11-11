@@ -477,6 +477,15 @@ def year_category_months(year):
         ("%04d-01-01" % year, "%04d-01-01" % (year + 1))).fetchall()
 
 
+def category_net_between(start, end):
+    """Rows of (category_id, category, net_cents) for dates in [start, end)."""
+    return get_db().execute(
+        "SELECT t.category_id, c.name AS category, SUM(t.amount_cents) AS net_cents"
+        " FROM transactions t LEFT JOIN categories c ON c.id = t.category_id"
+        " WHERE t.date >= ? AND t.date < ? GROUP BY t.category_id",
+        (start, end)).fetchall()
+
+
 # ----------------------------------------------------------- pending imports
 
 def save_pending_import(filename, content):
