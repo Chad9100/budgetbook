@@ -1,11 +1,12 @@
 """Command line entry point: ``budgetbook init`` and ``budgetbook run``."""
 import argparse
+import json
 import os
 import sqlite3
 import sys
 from datetime import datetime
 
-from . import __version__, db
+from . import __version__, db, jsonio
 
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
@@ -33,6 +34,17 @@ def build_parser():
     bk.add_argument("--out", default=None,
                     help="backup file (default: budgetbook-backup-YYYYMMDD-HHMMSS.db)")
     bk.add_argument("--force", action="store_true", help="overwrite an existing backup file")
+
+    ex = sub.add_parser("export", help="write everything as one JSON file")
+    ex.add_argument("--json", action="store_true", required=True, help="JSON format")
+    ex.add_argument("--db", default=None,
+                    help="database file (default: $BUDGETBOOK_DB or ./budgetbook.db)")
+    ex.add_argument("--out", default=None, help="output file (default: standard output)")
+
+    im = sub.add_parser("import", help="merge a JSON export into the database")
+    im.add_argument("--json", metavar="FILE", required=True, help="export file to read")
+    im.add_argument("--db", default=None,
+                    help="database file (default: $BUDGETBOOK_DB or ./budgetbook.db)")
 
     run = sub.add_parser("run", help="start the web app")
     run.add_argument("--db", default=None,
@@ -77,6 +89,56 @@ def main(argv=None):
             print(f"budgetbook: backup failed: {e}", file=sys.stderr)
             return 1
         print(f"Backed up {count} transactions to {os.path.abspath(out)}")
+        return 0
+
+    if args.command == "export":
+        if not os.path.isfile(path):
+            print(f"budgetbook: no database at {path}", file=sys.stderr)
+            return 1
+        conn = db.connect(path)
+        try:
+            data = jsonio.export_data(conn)
+        except sqlite3.Error as e:
+            print(f"budgetbook: export failed: {e}", file=sys.stderr)
+            return 1
+        finally:
+            conn.close()
+        text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+        if args.out is None:
+            sys.stdout.write(text)
+        else:
+            try:
+                with open(args.out, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(text)
+            except OSError as e:
+                print(f"budgetbook: cannot write {args.out}: {e}", file=sys.stderr)
+                return 1
+            print(f"Exported {len(data['transactions'])} transactions to "
+                  f"{os.path.abspath(args.out)}")
+        return 0
+
+    if args.command == "import":
+        try:
+            with open(args.json, encoding="utf-8-sig") as f:
+                data = json.load(f)
+        except (OSError, ValueError) as e:
+            print(f"budgetbook: cannot read {args.json}: {e}", file=sys.stderr)
+            return 1
+        try:
+            db.init_file(path)
+            conn = db.connect(path)
+            try:
+                added, skipped = jsonio.import_data(conn, data)
+            finally:
+                conn.close()
+        except (jsonio.ImportError_, KeyError, TypeError, AttributeError) as e:
+            print(f"budgetbook: invalid export file: {e}", file=sys.stderr)
+            return 1
+        except (OSError, sqlite3.Error) as e:
+            print(f"budgetbook: import failed: {e}", file=sys.stderr)
+            return 1
+        for key in added:
+            print(f"{key:<13} {added[key]} added, {skipped[key]} already present")
         return 0
 
     if args.command == "run":

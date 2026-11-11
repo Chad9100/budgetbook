@@ -61,7 +61,7 @@ Part 2:
 ## v0.7: backups and data portability (about 2 h)
 
 - [x] `budgetbook backup` writes a consistent copy using SQLite's backup API
-- [ ] `budgetbook export --json` and a matching `import --json` for moving
+- [x] `budgetbook export --json` and a matching `import --json` for moving
       everything (categories, rules, budgets, transactions) between machines
 
 ## v0.8: quality of life (about 2 h)

@@ -36,6 +36,8 @@ Then open <http://127.0.0.1:5000> in a browser.
 | `budgetbook init` | `--db PATH`, `--no-categories` (start with no categories) |
 | `budgetbook run` | `--db PATH`, `--host` (default `127.0.0.1`), `--port` (default `5000`), `--debug` |
 | `budgetbook backup` | `--db PATH`, `--out FILE` (default `budgetbook-backup-YYYYMMDD-HHMMSS.db` in the current folder), `--force` (overwrite) |
+| `budgetbook export --json` | `--db PATH`, `--out FILE` (default: standard output) |
+| `budgetbook import --json FILE` | `--db PATH` (created if missing) |
 
 The database path defaults to `$BUDGETBOOK_DB`, or `budgetbook.db` in the
 current folder. `run` creates the database if it does not exist yet (without
@@ -47,6 +49,31 @@ A random session key is stored next to the database as `<db>.secret` (set
 copy of the database using SQLite's backup API, so it is safe to run while the
 app is serving; it never overwrites an existing file without `--force`. It
 does not copy the `.secret` file (a new one is made on first run).
+
+`export --json` writes categories, accounts, rules, budgets and transactions
+as one UTF-8 JSON file that refers to categories and accounts by name, so it
+can be imported into a database with different ids. `import --json` merges: names
+that already exist are reused (case-insensitively) and rules, budgets and
+transactions already present are skipped, so importing the same file twice
+adds nothing. The whole import is one transaction; an invalid file changes
+nothing. Real output for a small database, imported twice into a new one:
+
+```text
+$ budgetbook export --json --db a.db --out all.json
+Exported 2 transactions to .../all.json
+$ budgetbook import --json all.json --db b.db
+categories    10 added, 0 already present
+accounts      1 added, 0 already present
+rules         0 added, 0 already present
+budgets       1 added, 0 already present
+transactions  2 added, 0 already present
+$ budgetbook import --json all.json --db b.db
+categories    0 added, 10 already present
+accounts      0 added, 1 already present
+rules         0 added, 0 already present
+budgets       0 added, 1 already present
+transactions  0 added, 2 already present
+```
 
 To try it with sample data, import [examples/bank-statement.csv](examples/bank-statement.csv).
 
