@@ -20,7 +20,7 @@
     </select>
   </label>{% endif %}
   <button type="submit">Filter</button>
-  <a href="{{ url_for('index') }}">All</a>
+  <a href="{{ url_for('index', clear=1) }}">All</a>
   <a href="{{ url_for('index', month=this_month) }}">This month</a>
 </form>
 {% if month %}

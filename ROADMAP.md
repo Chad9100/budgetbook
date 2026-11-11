@@ -68,4 +68,4 @@ Part 2:
 
 - [x] Pagination on the transaction list for large histories
 - [x] Bulk select to set the category or delete several transactions at once
-- [ ] Remember the last month and filters you viewed
+- [x] Remember the last month and filters you viewed

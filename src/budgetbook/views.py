@@ -5,7 +5,7 @@ import os
 from datetime import date
 
 from flask import (Response, abort, current_app, flash, redirect,
-                   render_template, request, url_for)
+                   render_template, request, session, url_for)
 
 from . import db, rules
 from .csvimport import (DATE_FORMATS, KNOWN_FORMATS, decode, dup_key, guess_mapping,
@@ -54,14 +54,33 @@ def register(app):
 
     @app.route("/")
     def index():
-        month = month_arg(default_current=False)
-        q = request.args.get("q", "").strip()
-        category = request.args.get("category", "")
+        # Filters are remembered in the session: a bare visit restores the
+        # last ones, any filter argument replaces them, ?clear=1 forgets them.
+        keys = ("month", "q", "category", "account")
+        clearing = bool(request.args.get("clear"))
+        if clearing:
+            session.pop("tx_filters", None)
+            args = {}
+        elif any(k in request.args for k in keys):
+            args = {k: request.args.get(k, "") for k in keys}
+        else:
+            args = session.get("tx_filters") or {}
+        month = str(args.get("month", ""))
+        if not valid_month(month):
+            month = ""
+        q = str(args.get("q", "")).strip()
+        category = str(args.get("category", ""))
         if category not in ("", "none") and not category.isdigit():
             category = ""
-        account = request.args.get("account", "")
+        account = str(args.get("account", ""))
         if account not in ("", "none") and not account.isdigit():
             account = ""
+        if not clearing:
+            if month or q or category or account:
+                session["tx_filters"] = {"month": month, "q": q,
+                                         "category": category, "account": account}
+            else:
+                session.pop("tx_filters", None)
         txs = db.list_transactions(month or None, q, category, account)
         income = sum(t["amount_cents"] for t in txs if t["amount_cents"] > 0)
         spent = -sum(t["amount_cents"] for t in txs if t["amount_cents"] < 0)

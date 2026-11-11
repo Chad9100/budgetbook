@@ -87,6 +87,13 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
   page. With 120 transactions, real output of the pager line:
   `Showing 1-50 of 120 (page 1 of 3)`, then `Showing 101-120 of 120 (page 3
   of 3)` on the last page. An out-of-range page number is clamped.
+- **Remembered filters:** the list remembers the month, category, account
+  and search you last used (in your browser session), so opening
+  "Transactions" again returns to them. The "All" link forgets them
+  (`/?clear=1`). Real output with a September and an October payment, which
+  payees appear after each request: `/?month=2026-09` shows `Septshop`; a
+  bare `/` afterwards still shows only `Septshop`; `/?clear=1` shows
+  `Septshop` and `Octshop`, and so does the next bare `/`.
 - **Bulk actions:** every row has a checkbox (the header one ticks the whole
   page). Under the table, "Set category" applies a category, or
   "Uncategorised", to all ticked transactions and "Delete" removes them after

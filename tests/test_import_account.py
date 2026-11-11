@@ -58,5 +58,5 @@ def test_running_balance_in_account_view(post, app, client, add_tx):
     cells = re.findall(r'<td class="num">([^<]*)</td>', body)
     # newest first: 100-30-20+50 = 100.00, then 50.00, then 70.00
     assert cells == ["100.00", "50.00", "70.00"]
-    assert "Balance</th>" not in client.get("/").get_data(as_text=True)
+    assert "Balance</th>" not in client.get("/?clear=1").get_data(as_text=True)
     assert "Balance</th>" not in client.get("/?account=none").get_data(as_text=True)
