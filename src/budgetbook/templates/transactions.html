@@ -35,10 +35,11 @@
   <a href="{{ url_for('export_csv', month=month or None) }}">Export CSV</a></p>
 {% if txs %}
 <table>
-<thead><tr><th>Date</th><th>Payee</th><th>Category</th>{% if accounts %}<th>Account</th>{% endif %}<th class="num">Amount</th>{% if balances %}<th class="num">Balance</th>{% endif %}<th>Note</th><th></th></tr></thead>
+<thead><tr><th><input type="checkbox" form="bulk" aria-label="Select all on this page" onclick="var s=this.checked;document.querySelectorAll('input[name=ids]').forEach(function(b){b.checked=s})"></th><th>Date</th><th>Payee</th><th>Category</th>{% if accounts %}<th>Account</th>{% endif %}<th class="num">Amount</th>{% if balances %}<th class="num">Balance</th>{% endif %}<th>Note</th><th></th></tr></thead>
 <tbody>
 {% for t in txs %}
 <tr>
+  <td><input type="checkbox" form="bulk" name="ids" value="{{ t.id }}" aria-label="Select {{ t.payee }}"></td>
   <td>{{ t.date }}</td>
   <td>{{ t.payee }}</td>
   <td>{% if t.category %}{{ t.category }}{% else %}<span class="muted">uncategorised</span>{% endif %}</td>
@@ -57,6 +58,18 @@
 {% endfor %}
 </tbody>
 </table>
+<form method="post" id="bulk" class="filters bulk" action="{{ url_for('bulk_transactions') }}">
+  {{ csrf_field() }}
+  <input type="hidden" name="back" value="{{ request.full_path.rstrip('?') }}">
+  <span>With selected:</span>
+  <select name="category" aria-label="Category to apply">
+    <option value="">Category&hellip;</option>
+    <option value="none">Uncategorised</option>
+    {% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+  </select>
+  <button type="submit" name="action" value="category">Set category</button>
+  <button type="submit" name="action" value="delete" onclick="return confirm('Delete the selected transactions?')">Delete</button>
+</form>
 {% if pages > 1 %}
 <p class="pager">
   {% if page > 1 %}<a href="{{ url_for('index', month=month or None, q=q or None, category=category or None, account=account or None, page=page - 1) }}">&larr; Newer</a>{% endif %}

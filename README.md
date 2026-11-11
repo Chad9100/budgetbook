@@ -87,6 +87,13 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
   page. With 120 transactions, real output of the pager line:
   `Showing 1-50 of 120 (page 1 of 3)`, then `Showing 101-120 of 120 (page 3
   of 3)` on the last page. An out-of-range page number is clamped.
+- **Bulk actions:** every row has a checkbox (the header one ticks the whole
+  page). Under the table, "Set category" applies a category, or
+  "Uncategorised", to all ticked transactions and "Delete" removes them after
+  a confirmation. You return to the same filters and page. Real flash
+  messages from three ticked coffees and one deleted rent payment:
+  `Set 3 transactions to Eating out.`, then `Deleted 1 transaction.`
+  Nothing ticked changes nothing.
 - **Accounts:** add accounts (current, savings, credit card, cash) with an
   opening balance; the Accounts page shows each balance (opening plus its
   transactions). Pick an account on a transaction and filter the list by

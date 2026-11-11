@@ -322,6 +322,36 @@ def delete_transaction(tx_id):
     return cur.rowcount > 0
 
 
+def _chunks(ids, size=500):
+    for i in range(0, len(ids), size):
+        yield ids[i:i + size]
+
+
+def delete_transactions(ids):
+    """Delete the given transactions; returns how many existed."""
+    conn = get_db()
+    count = 0
+    for part in _chunks(list(ids)):
+        marks = ",".join("?" * len(part))
+        count += conn.execute(
+            "DELETE FROM transactions WHERE id IN (%s)" % marks, part).rowcount
+    conn.commit()
+    return count
+
+
+def set_transactions_category(ids, category_id):
+    """Set (or clear, with None) the category of the given transactions."""
+    conn = get_db()
+    count = 0
+    for part in _chunks(list(ids)):
+        marks = ",".join("?" * len(part))
+        count += conn.execute(
+            "UPDATE transactions SET category_id = ? WHERE id IN (%s)" % marks,
+            [category_id] + part).rowcount
+    conn.commit()
+    return count
+
+
 def uncategorised_transactions():
     return get_db().execute(
         "SELECT id, payee, amount_cents FROM transactions"

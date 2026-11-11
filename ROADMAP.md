@@ -67,5 +67,5 @@ Part 2:
 ## v0.8: quality of life (about 2 h)
 
 - [x] Pagination on the transaction list for large histories
-- [ ] Bulk select to set the category or delete several transactions at once
+- [x] Bulk select to set the category or delete several transactions at once
 - [ ] Remember the last month and filters you viewed

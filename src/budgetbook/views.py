@@ -169,6 +169,35 @@ def register(app):
         flash("Transaction deleted.")
         return redirect(url_for("index", month=tx["date"][:7]))
 
+    @app.post("/transactions/bulk")
+    def bulk_transactions():
+        back = request.form.get("back", "")
+        if not back.startswith("/") or back.startswith("//") or "\\" in back:
+            back = url_for("index")
+        ids = sorted({int(v) for v in request.form.getlist("ids") if v.isdigit()})
+        action = request.form.get("action", "")
+        if not ids:
+            flash("Select at least one transaction first.")
+            return redirect(back)
+        if action == "delete":
+            n = db.delete_transactions(ids)
+            flash("Deleted %d transaction%s." % (n, "" if n == 1 else "s"))
+        elif action == "category":
+            choice = request.form.get("category", "")
+            if choice == "none":
+                cat_id, label = None, "uncategorised"
+            elif choice.isdigit() and int(choice) in category_ids():
+                cat_id = int(choice)
+                label = db.get_category(cat_id)["name"]
+            else:
+                flash("Choose a category to apply.")
+                return redirect(back)
+            n = db.set_transactions_category(ids, cat_id)
+            flash("Set %d transaction%s to %s." % (n, "" if n == 1 else "s", label))
+        else:
+            flash("Choose what to do with the selected transactions.")
+        return redirect(back)
+
     @app.route("/export.csv")
     def export_csv():
         month = month_arg(default_current=False)
