@@ -189,6 +189,17 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
   Groceries | 30.00 | 45.00 | 52.50
   Total | 563.33 | 311.67 | 185.83
   ```
+- **Budget suggestions:** the buttons above that table (`Use 3-month
+  averages`, 6, 12) turn an average into budgets for the chosen month in one
+  step. Uncategorised spending is skipped and a budget already set for that
+  month is never overwritten. Real result with the same demo data, after
+  Rent already had 750.00 set for 2026-10 and the 6-month button was used:
+
+  ```text
+  Set 1 budget for 2026-10 from the 6-month average.
+  Rent 750.0 2026-10
+  Groceries 45.0 2026-10
+  ```
 - **Safe by default:** every form that changes data carries a per-session CSRF
   token, and the session cookie is `SameSite=Lax` and `HttpOnly`. All output
   is escaped by Jinja autoescaping. Exported CSV cells that start with `=`,

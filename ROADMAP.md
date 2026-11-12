@@ -56,7 +56,7 @@ Part 2:
 
 - [x] Year report: month-by-month table per category with totals
 - [x] Average monthly spend per category over the last 3, 6 and 12 months
-- [ ] Budget suggestions based on those averages
+- [x] Budget suggestions based on those averages
 
 ## v0.7: backups and data portability (about 2 h)
 

@@ -464,26 +464,59 @@ def register(app):
                          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
             prev_year=year - 1, next_year=year + 1)
 
-    @app.route("/report/averages")
-    def averages():
-        month = month_arg()
-        windows = (3, 6, 12)
+    AVG_WINDOWS = (3, 6, 12)
+
+    def average_rows(month):
+        windows = AVG_WINDOWS
         end = month_range(month)[0]  # complete months before the chosen month
         cats = {}
         for n in windows:
             start = month_range(shift_month(month, -n))[0]
             for r in db.category_net_between(start, end):
                 entry = cats.setdefault(r["category_id"], {
-                    "name": r["category"] or "Uncategorised", "avg": {}})
+                    "id": r["category_id"], "name": r["category"] or "Uncategorised", "avg": {}})
                 # net spending per month, rounded to the nearest cent;
                 # months without transactions count as zero
                 entry["avg"][n] = round(-r["net_cents"] / n)
         rows = []
         for entry in cats.values():
             if any(entry["avg"].get(n, 0) > 0 for n in windows):
-                rows.append({"name": entry["name"],
+                rows.append({"id": entry["id"], "name": entry["name"],
                              "avg": [max(entry["avg"].get(n, 0), 0) for n in windows]})
         rows.sort(key=lambda e: (-e["avg"][1], e["name"].casefold()))
+        return rows
+
+    @app.route("/report/averages/suggest", methods=["POST"])
+    def apply_budget_suggestions():
+        month = request.form.get("month", "")
+        if not valid_month(month):
+            abort(400, description="Invalid month.")
+        try:
+            window = int(request.form.get("window", ""))
+        except ValueError:
+            window = 0
+        if window not in AVG_WINDOWS:
+            abort(400, description="Invalid window.")
+        idx = AVG_WINDOWS.index(window)
+        count = 0
+        for e in average_rows(month):
+            # uncategorised spending has no budget; never overwrite a budget
+            # that was set explicitly for this month
+            if e["id"] is None or e["avg"][idx] <= 0:
+                continue
+            if db.budgets_for_month(month).get(e["id"], (None, None))[1] == month:
+                continue
+            db.set_budget(e["id"], month, e["avg"][idx])
+            count += 1
+        flash(f"Set {count} budget{'s' if count != 1 else ''} for {month} from the "
+              f"{window}-month average.")
+        return redirect(url_for("budgets", month=month))
+
+    @app.route("/report/averages")
+    def averages():
+        month = month_arg()
+        windows = AVG_WINDOWS
+        rows = average_rows(month)
         return render_template(
             "averages.html", month=month, rows=rows, windows=windows,
             totals=[sum(e["avg"][i] for e in rows) for i in range(len(windows))],

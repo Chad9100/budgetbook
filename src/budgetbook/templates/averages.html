@@ -7,6 +7,14 @@
 Months without spending count as zero.</p>
 <p><a href="{{ url_for('report', month=month) }}">Monthly report</a></p>
 {% if rows %}
+<form method="post" action="{{ url_for('apply_budget_suggestions') }}">
+  {{ csrf_field() }}
+  <input type="hidden" name="month" value="{{ month }}">
+  <p>Suggest budgets for {{ month|month_label }}:
+  {% for n in windows %}<button type="submit" name="window" value="{{ n }}">Use {{ n }}-month averages</button> {% endfor %}</p>
+  <p class="muted">Sets a budget for each listed category, except uncategorised spending and
+  categories that already have a budget set for {{ month|month_label }}.</p>
+</form>
 <table class="preview">
 <thead><tr><th>Category</th>{% for n in windows %}<th class="num">Last {{ n }} months</th>{% endfor %}</tr></thead>
 {% for e in rows %}
