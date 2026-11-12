@@ -101,11 +101,23 @@ To try it with sample data, import [examples/bank-statement.csv](examples/bank-s
   messages from three ticked coffees and one deleted rent payment:
   `Set 3 transactions to Eating out.`, then `Deleted 1 transaction.`
   Nothing ticked changes nothing.
+- **Transfers:** tick two transactions with opposite amounts (one out, one in,
+  in different accounts) and press "Mark as transfer". Both rows are tagged
+  `(transfer)` and left out of income, expenses, budgets and every report;
+  account balances still count them. "Unlink" on either row undoes it, and
+  deleting one half, or editing its amount, unlinks the pair automatically.
+  Real output with a 200.00 move from Current (1000.00 opening) to Savings
+  and a 4.80 coffee: before, the month's summary read `in 200.00`, `out
+  204.80`; after marking, `Marked as a transfer; both are left out of income
+  and expenses.`, then `in 0.00`, `out 4.80`, with balances Current 795.20
+  and Savings 200.00. Ticking one row gives `Select exactly two transactions
+  to mark as a transfer.` The JSON export does not carry the transfer link
+  yet.
 - **Accounts:** add accounts (current, savings, credit card, cash) with an
   opening balance; the Accounts page shows each balance (opening plus its
   transactions). Pick an account on a transaction and filter the list by
   account. Older databases upgrade in place and keep their transactions with
-  no account. Transfers come later. When you have accounts, the import
+  no account. When you have accounts, the import
   mapping step has an "Account for these transactions" menu, and every
   imported row is stored on the account you pick (default: no account).
   Filtering the transaction list by one account adds a Balance column: the

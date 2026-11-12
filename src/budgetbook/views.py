@@ -82,8 +82,10 @@ def register(app):
             else:
                 session.pop("tx_filters", None)
         txs = db.list_transactions(month or None, q, category, account)
-        income = sum(t["amount_cents"] for t in txs if t["amount_cents"] > 0)
-        spent = -sum(t["amount_cents"] for t in txs if t["amount_cents"] < 0)
+        # Transfers move money between accounts; they are not income or spending.
+        real = [t for t in txs if t["transfer_id"] is None]
+        income = sum(t["amount_cents"] for t in real if t["amount_cents"] > 0)
+        spent = -sum(t["amount_cents"] for t in real if t["amount_cents"] < 0)
         # Totals above cover every match; only the table is paged.
         size = current_app.config.get("PAGE_SIZE", 50)
         pages = max(1, -(-len(txs) // size))
@@ -188,6 +190,14 @@ def register(app):
         flash("Transaction deleted.")
         return redirect(url_for("index", month=tx["date"][:7]))
 
+    @app.post("/transactions/<int:tx_id>/unlink")
+    def unlink_transfer(tx_id):
+        tx = db.get_transaction(tx_id)
+        if tx is None or not db.unlink_transfer(tx_id):
+            abort(404)
+        flash("Transfer unlinked; both transactions count as normal again.")
+        return redirect(url_for("index", month=tx["date"][:7]))
+
     @app.post("/transactions/bulk")
     def bulk_transactions():
         back = request.form.get("back", "")
@@ -201,6 +211,16 @@ def register(app):
         if action == "delete":
             n = db.delete_transactions(ids)
             flash("Deleted %d transaction%s." % (n, "" if n == 1 else "s"))
+        elif action == "transfer":
+            if len(ids) != 2:
+                flash("Select exactly two transactions to mark as a transfer.")
+                return redirect(back)
+            try:
+                db.link_transfer(ids[0], ids[1])
+            except ValueError as e:
+                flash("Not a transfer: %s." % e)
+                return redirect(back)
+            flash("Marked as a transfer; both are left out of income and expenses.")
         elif action == "category":
             choice = request.form.get("category", "")
             if choice == "none":

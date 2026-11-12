@@ -15,7 +15,9 @@ from .money import month_range
 # 4: rules.min_cents / rules.max_cents (nullable ALTERs; NULL = no limit)
 # 5: accounts table and transactions.account_id (nullable ALTER; existing
 #    transactions stay on "no account")
-SCHEMA_VERSION = 5
+# 6: transactions.transfer_id (nullable ALTER; the id of the other half of a
+#    transfer pair, set on both rows; deleting one half clears the other)
+SCHEMA_VERSION = 6
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS categories (
@@ -36,7 +38,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL,
     note         TEXT NOT NULL DEFAULT '',
     created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-    account_id   INTEGER REFERENCES accounts(id) ON DELETE SET NULL
+    account_id   INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+    transfer_id  INTEGER REFERENCES transactions(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS ix_transactions_date ON transactions(date);
 CREATE TABLE IF NOT EXISTS rules (
@@ -93,6 +96,9 @@ def ensure_schema(conn):
     if "account_id" not in tx_cols:
         conn.execute("ALTER TABLE transactions ADD COLUMN"
                      " account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL")
+    if "transfer_id" not in tx_cols:
+        conn.execute("ALTER TABLE transactions ADD COLUMN"
+                     " transfer_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL")
     conn.execute("CREATE INDEX IF NOT EXISTS ix_transactions_account"
                  " ON transactions(account_id)")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
@@ -253,7 +259,7 @@ def delete_account(account_id):
 
 _TX_SELECT = """
 SELECT t.id, t.date, t.amount_cents, t.payee, t.category_id, t.note,
-       c.name AS category, t.account_id, a.name AS account
+       c.name AS category, t.account_id, a.name AS account, t.transfer_id
 FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
 LEFT JOIN accounts a ON a.id = t.account_id
 """
@@ -306,6 +312,12 @@ def insert_transaction(tx, commit=True):
 
 def update_transaction(tx_id, tx):
     conn = get_db()
+    old = conn.execute("SELECT amount_cents, transfer_id FROM transactions"
+                       " WHERE id = ?", (tx_id,)).fetchone()
+    if old and old["transfer_id"] is not None and old["amount_cents"] != tx["amount_cents"]:
+        # The pair no longer cancels out, so it stops being a transfer.
+        conn.execute("UPDATE transactions SET transfer_id = NULL WHERE id IN (?, ?)",
+                     (tx_id, old["transfer_id"]))
     cur = conn.execute(
         "UPDATE transactions SET date = ?, amount_cents = ?, payee = ?,"
         " category_id = ?, note = ?, account_id = ? WHERE id = ?",
@@ -320,6 +332,41 @@ def delete_transaction(tx_id):
     cur = conn.execute("DELETE FROM transactions WHERE id = ?", (tx_id,))
     conn.commit()
     return cur.rowcount > 0
+
+
+def link_transfer(a_id, b_id):
+    """Mark two transactions as the two halves of one transfer, so reports
+    and budgets leave them out. They must exist, not already be part of a
+    transfer, cancel out exactly, and not sit in the same account.
+    Raises ValueError with a readable message otherwise."""
+    if a_id == b_id:
+        raise ValueError("pick two different transactions")
+    a, b = get_transaction(a_id), get_transaction(b_id)
+    if a is None or b is None:
+        raise ValueError("transaction not found")
+    if a["transfer_id"] is not None or b["transfer_id"] is not None:
+        raise ValueError("one of them is already part of a transfer")
+    if a["amount_cents"] + b["amount_cents"] != 0:
+        raise ValueError("a transfer needs one amount out and the same amount in")
+    if a["account_id"] is not None and a["account_id"] == b["account_id"]:
+        raise ValueError("both are in the same account")
+    conn = get_db()
+    conn.execute("UPDATE transactions SET transfer_id = ? WHERE id = ?", (b_id, a_id))
+    conn.execute("UPDATE transactions SET transfer_id = ? WHERE id = ?", (a_id, b_id))
+    conn.commit()
+
+
+def unlink_transfer(tx_id):
+    """Make both halves of the transfer ordinary transactions again.
+    Returns False if the transaction is not part of a transfer."""
+    tx = get_transaction(tx_id)
+    if tx is None or tx["transfer_id"] is None:
+        return False
+    conn = get_db()
+    conn.execute("UPDATE transactions SET transfer_id = NULL WHERE id IN (?, ?)",
+                 (tx_id, tx["transfer_id"]))
+    conn.commit()
+    return True
 
 
 def _chunks(ids, size=500):
@@ -450,7 +497,7 @@ def category_net(month):
         "SELECT t.category_id, c.name AS category,"
         "       SUM(t.amount_cents) AS net_cents, COUNT(*) AS count"
         " FROM transactions t LEFT JOIN categories c ON c.id = t.category_id"
-        " WHERE t.date >= ? AND t.date < ?"
+        " WHERE t.date >= ? AND t.date < ? AND t.transfer_id IS NULL"
         " GROUP BY t.category_id ORDER BY net_cents", (start, end)).fetchall()
 
 
@@ -460,7 +507,8 @@ def month_totals(month):
     row = get_db().execute(
         "SELECT COALESCE(SUM(CASE WHEN amount_cents > 0 THEN amount_cents END), 0),"
         "       COALESCE(-SUM(CASE WHEN amount_cents < 0 THEN amount_cents END), 0)"
-        " FROM transactions WHERE date >= ? AND date < ?", (start, end)).fetchone()
+        " FROM transactions WHERE date >= ? AND date < ? AND transfer_id IS NULL",
+        (start, end)).fetchone()
     return row[0], row[1]
 
 
@@ -472,7 +520,7 @@ def year_category_months(year):
         "       CAST(substr(t.date, 6, 2) AS INTEGER) AS month,"
         "       SUM(t.amount_cents) AS net_cents"
         " FROM transactions t LEFT JOIN categories c ON c.id = t.category_id"
-        " WHERE t.date >= ? AND t.date < ?"
+        " WHERE t.date >= ? AND t.date < ? AND t.transfer_id IS NULL"
         " GROUP BY t.category_id, month",
         ("%04d-01-01" % year, "%04d-01-01" % (year + 1))).fetchall()
 
@@ -482,7 +530,8 @@ def category_net_between(start, end):
     return get_db().execute(
         "SELECT t.category_id, c.name AS category, SUM(t.amount_cents) AS net_cents"
         " FROM transactions t LEFT JOIN categories c ON c.id = t.category_id"
-        " WHERE t.date >= ? AND t.date < ? GROUP BY t.category_id",
+        " WHERE t.date >= ? AND t.date < ? AND t.transfer_id IS NULL"
+        " GROUP BY t.category_id",
         (start, end)).fetchall()
 
 

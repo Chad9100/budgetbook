@@ -43,8 +43,9 @@ Part 1 (about 1 h): accounts and the account on a transaction.
 Part 2:
 
 - [x] Choose the account when importing; running balance per account
-- [ ] Mark a pair of transactions as a transfer so it is left out of income
-      and expenses
+- [x] Mark a pair of transactions as a transfer so it is left out of income
+      and expenses (schema version 6; JSON export/import does not carry the
+      link yet)
 
 ## v0.5: split transactions (about 3 h)
 
